@@ -1,0 +1,3186 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>REVON PromPD</title>
+  <style>
+    /* ─── Reset & Base ─── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #09090d;
+      --bg-panel:    #111117;
+      --bg-card:     #18181f;
+      --bg-hover:    #1f1f2a;
+      --border:      #2a2a38;
+      --border-dim:  #1e1e28;
+      --purple:      #7b6ff0;
+      --purple-dim:  #5a51c0;
+      --purple-glow: rgba(123,111,240,0.15);
+      --text:        #e8e8f0;
+      --text-dim:    #8888a0;
+      --text-faint:  #44445a;
+      --red:         #e05555;
+      --green:       #4caf7d;
+      --panel-w-left:  280px;
+      --panel-w-right: 360px;
+      --topbar-h:      52px;
+      --radius:        8px;
+      --radius-sm:     5px;
+      --mono:          'JetBrains Mono','Fira Code','Consolas',monospace;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Pretendard','Noto Sans KR',system-ui,sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      overflow: hidden;
+    }
+
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
+
+    /* ═══════════════════════════════════════
+       PLATFORM SELECTION SCREEN
+    ═══════════════════════════════════════ */
+    #platform-screen {
+      position: fixed; inset: 0;
+      background: var(--bg);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 48px; z-index: 100;
+    }
+    .platform-header { text-align: center; }
+    .platform-logo {
+      font-size: 12px; letter-spacing: 0.3em;
+      color: var(--purple); font-weight: 600;
+      text-transform: uppercase; margin-bottom: 12px;
+    }
+    .platform-title { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+    .platform-subtitle { margin-top: 8px; font-size: 13px; color: var(--text-dim); }
+
+    .platform-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 160px);
+      gap: 12px;
+    }
+    .platform-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 16px; cursor: pointer;
+      text-align: center; user-select: none;
+      transition: border-color .15s, background .15s, transform .1s;
+    }
+    .platform-card:hover { border-color: var(--purple); background: var(--bg-hover); transform: translateY(-2px); }
+    .platform-card:active { transform: translateY(0); }
+    .platform-card .p-icon { font-size: 24px; margin-bottom: 10px; }
+    .platform-card .p-name { font-size: 15px; font-weight: 600; }
+    .platform-card .p-tag  { margin-top: 4px; font-size: 11px; color: var(--text-dim); }
+
+    /* ═══════════════════════════════════════
+       WORKSPACE
+    ═══════════════════════════════════════ */
+    #workspace { display: none; flex-direction: column; height: 100vh; }
+    #workspace.visible { display: flex; }
+
+    /* ─── Top Bar ─── */
+    #topbar {
+      height: var(--topbar-h); min-height: var(--topbar-h);
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center;
+      padding: 0 16px; flex-shrink: 0;
+    }
+    .topbar-brand { display: flex; align-items: baseline; gap: 8px; margin-right: 20px; }
+    .topbar-brand .brand-rev { font-size: 15px; font-weight: 700; color: var(--purple); letter-spacing: .05em; }
+    .topbar-brand .brand-app { font-size: 13px; color: var(--text-dim); }
+    .topbar-sep { width: 1px; height: 24px; background: var(--border); margin: 0 16px; }
+    .platform-select-wrap { display: flex; align-items: center; gap: 8px; }
+    .platform-select-label { font-size: 12px; color: var(--text-dim); }
+    #topbar-platform-select {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text);
+      font-size: 13px; font-family: inherit;
+      padding: 5px 10px; cursor: pointer; outline: none;
+      transition: border-color .15s;
+    }
+    #topbar-platform-select:hover, #topbar-platform-select:focus { border-color: var(--purple); }
+
+    .shot-mode-toggle {
+      display: flex; align-items: center;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); overflow: hidden;
+      margin-left: auto;
+    }
+    .shot-mode-toggle button {
+      background: none; border: none; color: var(--text-dim);
+      font-size: 13px; font-family: inherit;
+      padding: 6px 16px; cursor: pointer;
+      transition: background .15s, color .15s;
+    }
+    .shot-mode-toggle button.active { background: var(--purple); color: #fff; }
+    .shot-mode-toggle button:not(.active):hover { background: var(--bg-hover); color: var(--text); }
+
+    /* ─── Panel Area ─── */
+    #panel-area { display: flex; flex: 1; overflow: hidden; }
+
+    .panel {
+      display: flex; flex-direction: column;
+      background: var(--bg-panel); overflow: hidden;
+    }
+    .panel-header {
+      padding: 12px 16px 10px;
+      border-bottom: 1px solid var(--border-dim);
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .panel-title {
+      font-size: 12px; font-weight: 600;
+      letter-spacing: .08em; text-transform: uppercase;
+      color: var(--text-dim);
+    }
+    .panel-body { flex: 1; overflow-y: auto; padding: 16px; }
+
+    /* ─── Left Panel ─── */
+    #panel-left { width: var(--panel-w-left); min-width: var(--panel-w-left); border-right: 1px solid var(--border); }
+
+    /* ─── Center Panel ─── */
+    #panel-center { flex: 1; border-right: 1px solid var(--border); background: var(--bg); }
+
+    /* ─── Right Panel ─── */
+    #panel-right { width: var(--panel-w-right); min-width: var(--panel-w-right); }
+
+    /* ═══════════════════════════════════════
+       LEFT PANEL – LIST VIEW
+    ═══════════════════════════════════════ */
+    #left-list-view { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+    #left-editor-view { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+
+    /* Category Tabs */
+    .category-tabs {
+      display: flex; flex-wrap: wrap; gap: 4px;
+      padding: 10px 16px 8px; flex-shrink: 0;
+      border-bottom: 1px solid var(--border-dim);
+    }
+    .cat-tab {
+      background: none; border: 1px solid var(--border);
+      border-radius: 20px; color: var(--text-dim);
+      font-size: 11px; font-family: inherit;
+      padding: 3px 9px; cursor: pointer;
+      transition: all .12s;
+    }
+    .cat-tab:hover { border-color: var(--purple-dim); color: var(--text); }
+    .cat-tab.active { background: var(--purple); border-color: var(--purple); color: #fff; }
+
+    /* Sheet List */
+    .sheet-list { display: flex; flex-direction: column; gap: 6px; }
+    .sheet-empty {
+      text-align: center; color: var(--text-faint);
+      font-size: 13px; margin-top: 28px;
+    }
+    .sheet-empty .empty-icon { font-size: 26px; margin-bottom: 6px; }
+
+    /* Sheet Card */
+    .sheet-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 8px 10px;
+      display: flex; align-items: center; gap: 8px;
+      cursor: pointer;
+      transition: border-color .12s, background .12s;
+    }
+    .sheet-card:hover { border-color: var(--purple-dim); background: var(--bg-hover); }
+
+    .sheet-card-thumb {
+      width: 38px; height: 32px; border-radius: 3px;
+      object-fit: cover; flex-shrink: 0;
+    }
+    .sheet-card-thumb-ph {
+      width: 38px; height: 32px; border-radius: 3px;
+      background: var(--bg-hover); border: 1px solid var(--border-dim);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; flex-shrink: 0;
+    }
+    .sheet-card-info { flex: 1; min-width: 0; }
+    .sheet-card-label {
+      font-size: 12px; font-weight: 600; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sheet-card-meta { font-size: 10px; color: var(--text-faint); margin-top: 1px; }
+    .sheet-card-del {
+      background: none; border: none; color: var(--text-faint);
+      cursor: pointer; font-size: 12px; padding: 3px 5px;
+      border-radius: 3px; opacity: 0;
+      transition: opacity .12s, color .12s;
+      flex-shrink: 0;
+    }
+    .sheet-card:hover .sheet-card-del { opacity: 1; }
+    .sheet-card-del:hover { color: var(--red); }
+
+    /* Add sheet inline form */
+    .add-sheet-form {
+      display: none; gap: 5px; align-items: center; margin-top: 10px;
+    }
+    .add-sheet-form.visible { display: flex; }
+    .add-sheet-form input {
+      flex: 1; min-width: 0; background: var(--bg-card);
+      border: 1px solid var(--purple); border-radius: var(--radius-sm);
+      color: var(--text); font-size: 13px; font-family: inherit;
+      padding: 7px 9px; outline: none;
+    }
+    .add-sheet-form input::placeholder { color: var(--text-faint); }
+
+    .btn-add-sheet {
+      width: 100%; background: none;
+      border: 1px dashed var(--border); border-radius: var(--radius-sm);
+      color: var(--text-dim); font-size: 13px; font-family: inherit;
+      padding: 9px; cursor: pointer; margin-top: 10px;
+      transition: border-color .15s, color .15s;
+    }
+    .btn-add-sheet:hover { border-color: var(--purple); color: var(--purple); }
+
+    /* ═══════════════════════════════════════
+       LEFT PANEL – SHEET EDITOR VIEW
+    ═══════════════════════════════════════ */
+    .sheet-editor-top {
+      padding: 10px 14px; border-bottom: 1px solid var(--border-dim);
+      display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+    }
+    .btn-back {
+      background: none; border: none; color: var(--text-dim);
+      cursor: pointer; font-size: 15px; padding: 3px 5px;
+      border-radius: var(--radius-sm);
+      transition: color .12s, background .12s;
+    }
+    .btn-back:hover { color: var(--text); background: var(--bg-hover); }
+
+    .sheet-editor-label {
+      flex: 1; display: flex; align-items: center; gap: 4px; min-width: 0;
+    }
+    .sheet-cat-badge {
+      font-size: 10px; font-weight: 700; letter-spacing: .05em;
+      color: var(--purple); background: var(--purple-glow);
+      border: 1px solid rgba(123,111,240,.3);
+      border-radius: 3px; padding: 2px 6px;
+      flex-shrink: 0;
+    }
+    .sheet-name-sep { font-size: 12px; color: var(--text-faint); flex-shrink: 0; }
+    .sheet-name-edit {
+      flex: 1; background: none; border: none;
+      border-bottom: 1px solid transparent;
+      color: var(--text); font-size: 13px; font-weight: 600;
+      font-family: inherit; padding: 1px 3px; outline: none;
+      min-width: 0;
+      transition: border-color .12s;
+    }
+    .sheet-name-edit:hover { border-bottom-color: var(--border); }
+    .sheet-name-edit:focus { border-bottom-color: var(--purple); }
+
+    /* Image Upload */
+    .section-label {
+      font-size: 10px; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--text-faint);
+      margin-bottom: 8px;
+    }
+    .img-slot-strip { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    .img-slot { width: 72px; height: 60px; border-radius: var(--radius-sm); position: relative; flex-shrink: 0; }
+
+    .img-slot-filled { cursor: default; }
+    .img-slot-filled img { width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-sm); display: block; }
+    .img-slot-del-btn {
+      position: absolute; top: 3px; right: 3px;
+      width: 17px; height: 17px;
+      background: rgba(0,0,0,.75); border: none;
+      border-radius: 50%; color: #fff;
+      font-size: 9px; cursor: pointer;
+      display: none; align-items: center; justify-content: center;
+    }
+    .img-slot-filled:hover .img-slot-del-btn { display: flex; }
+
+    .img-slot-add {
+      width: 72px; height: 60px;
+      border: 1px dashed var(--border); border-radius: var(--radius-sm);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      cursor: pointer; color: var(--text-faint);
+      gap: 2px; font-size: 18px;
+      transition: border-color .12s, color .12s, background .12s;
+      user-select: none;
+    }
+    .img-slot-add:hover, .img-slot-add.drag-over {
+      border-color: var(--purple); color: var(--purple); background: var(--purple-glow);
+    }
+    .img-slot-add .slot-add-label { font-size: 8px; text-transform: uppercase; letter-spacing: .05em; }
+
+    /* Fields */
+    .fields-divider { border: none; border-top: 1px solid var(--border-dim); margin: 14px 0; }
+    .field-row { margin-bottom: 11px; }
+    .field-label {
+      display: block; font-size: 10px; font-weight: 700;
+      letter-spacing: .07em; text-transform: uppercase;
+      color: var(--text-faint); margin-bottom: 4px;
+    }
+    .field-input {
+      width: 100%; background: var(--bg-card);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      color: var(--text); font-size: 13px; font-family: inherit;
+      padding: 6px 9px; outline: none;
+      transition: border-color .12s;
+    }
+    .field-input:focus { border-color: var(--purple); }
+    .field-input::placeholder { color: var(--text-faint); }
+    .field-textarea {
+      width: 100%; background: var(--bg-card);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      color: var(--text); font-size: 13px; font-family: inherit;
+      padding: 6px 9px; outline: none; resize: vertical;
+      min-height: 58px; line-height: 1.45;
+      transition: border-color .12s;
+    }
+    .field-textarea:focus { border-color: var(--purple); }
+    .field-textarea::placeholder { color: var(--text-faint); }
+
+    .field-checks { display: flex; flex-wrap: wrap; gap: 5px; }
+    .check-pill {
+      display: flex; align-items: center; gap: 5px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 20px; padding: 3px 9px;
+      cursor: pointer; font-size: 12px; color: var(--text-dim);
+      user-select: none; transition: all .12s;
+    }
+    .check-pill:hover { border-color: var(--purple-dim); color: var(--text); }
+    .check-pill.checked { background: var(--purple-glow); border-color: var(--purple); color: var(--purple); }
+    .check-pill input { display: none; }
+
+    /* ═══════════════════════════════════════
+       CENTER PANEL
+    ═══════════════════════════════════════ */
+    .panel-placeholder {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      height: 100%; color: var(--text-faint); gap: 10px;
+    }
+    .panel-placeholder .ph-icon { font-size: 34px; }
+    .panel-placeholder .ph-label { font-size: 13px; }
+
+    /* ═══════════════════════════════════════
+       RIGHT PANEL
+    ═══════════════════════════════════════ */
+    .platform-badge {
+      display: inline-flex; align-items: center;
+      background: var(--purple-glow); border: 1px solid rgba(123,111,240,.3);
+      border-radius: 20px; padding: 2px 10px;
+      font-size: 11px; color: var(--purple);
+    }
+    .btn-generate {
+      background: var(--purple); border: none;
+      border-radius: var(--radius-sm); color: #fff;
+      font-size: 14px; font-weight: 600; font-family: inherit;
+      padding: 10px 24px; cursor: pointer;
+      transition: background .15s, opacity .15s;
+      letter-spacing: .02em;
+    }
+    .btn-generate:hover { background: var(--purple-dim); }
+    .btn-generate:disabled { opacity: .4; cursor: default; }
+
+    /* ─── API Key Section (multi-provider) ─── */
+    .apikey-section {
+      padding: 10px 14px; border-top: 1px solid var(--border-dim);
+      flex-shrink: 0; display: flex; flex-direction: column; gap: 7px;
+    }
+    .api-provider-row { display: flex; align-items: center; gap: 6px; }
+    .api-provider-tabs { display: flex; gap: 3px; }
+    .api-provider-tab {
+      background: none; border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text-dim);
+      font-size: 11px; font-family: inherit; padding: 4px 9px;
+      cursor: pointer; transition: all .12s;
+    }
+    .api-provider-tab:hover { border-color: var(--purple); color: var(--text); }
+    .api-provider-tab.active { background: var(--purple); border-color: var(--purple); color: #fff; }
+    .api-model-select {
+      flex: 1; background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text); font-size: 11px;
+      font-family: inherit; padding: 4px 8px; outline: none; cursor: pointer;
+      transition: border-color .12s;
+    }
+    .api-model-select:focus { border-color: var(--purple); }
+    .api-key-row { display: flex; gap: 6px; align-items: center; }
+    .api-key-row input {
+      flex: 1; background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text);
+      font-size: 11px; font-family: var(--mono);
+      padding: 5px 26px 5px 8px; outline: none; transition: border-color .15s;
+    }
+    .api-key-row input::placeholder { color: var(--text-faint); }
+    .api-key-row input:focus { border-color: var(--purple); }
+    .api-status {
+      font-size: 10px; color: var(--text-faint); padding-top: 1px;
+    }
+    .api-status.ok { color: var(--green); }
+
+    /* ─── Ref Images (standalone) ─── */
+    .ref-images-section {
+      padding: 10px 16px; border-top: 1px solid var(--border-dim); flex-shrink: 0;
+    }
+    .ref-images-label {
+      font-size: 10px; font-weight: 700; letter-spacing: .07em;
+      text-transform: uppercase; color: var(--text-faint); margin-bottom: 8px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .btn-add-ref-img {
+      background: none; border: 1px dashed var(--border);
+      border-radius: var(--radius-sm); color: var(--text-dim);
+      font-size: 11px; font-family: inherit; padding: 3px 8px;
+      cursor: pointer; transition: all .12s;
+    }
+    .btn-add-ref-img:hover { border-color: var(--purple); color: var(--purple); }
+    .ref-img-strip { display: flex; flex-wrap: wrap; gap: 5px; }
+    .ref-img-chip {
+      position: relative; width: 44px; height: 38px; border-radius: 3px;
+      overflow: hidden; cursor: pointer; flex-shrink: 0;
+      border: 1px solid var(--border);
+    }
+    .ref-img-chip img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .ref-img-chip-del {
+      position: absolute; inset: 0; background: rgba(0,0,0,.6);
+      border: none; color: #fff; font-size: 11px; cursor: pointer;
+      display: none; align-items: center; justify-content: center;
+    }
+    .ref-img-chip:hover .ref-img-chip-del { display: flex; }
+
+    /* ─── Korean translation ─── */
+    .part-val-ko {
+      font-size: 10px; color: var(--text-faint); font-family: inherit;
+      margin-top: 3px; line-height: 1.45; font-style: italic;
+    }
+    .final-ko {
+      margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-dim);
+      font-size: 11px; color: var(--text-dim); line-height: 1.55;
+    }
+
+    .btn-small {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text-dim);
+      font-size: 12px; font-family: inherit; padding: 6px 11px;
+      cursor: pointer; white-space: nowrap;
+      transition: border-color .15s, color .15s;
+    }
+    .btn-small:hover { border-color: var(--purple); color: var(--text); }
+
+    .btn-confirm {
+      background: var(--purple); border: none;
+      border-radius: var(--radius-sm); color: #fff;
+      font-size: 12px; font-family: inherit;
+      padding: 7px 11px; cursor: pointer; white-space: nowrap;
+    }
+    .btn-confirm:hover { background: var(--purple-dim); }
+
+    .btn-cancel {
+      background: none; border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text-dim);
+      font-size: 12px; font-family: inherit;
+      padding: 7px 9px; cursor: pointer;
+    }
+    .btn-cancel:hover { border-color: var(--text-dim); color: var(--text); }
+
+    /* ═══════════════════════════════════════
+       CENTER PANEL – SINGLE SHOT FORM
+    ═══════════════════════════════════════ */
+    .shot-form {
+      max-width: 680px;
+      margin: 0 auto;
+      display: flex; flex-direction: column; gap: 22px;
+      padding-bottom: 32px;
+    }
+    .form-section {}
+    .form-section-label {
+      font-size: 11px; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px;
+    }
+    .form-textarea {
+      width: 100%; background: var(--bg-card);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      color: var(--text); font-size: 13px; font-family: inherit;
+      padding: 10px 12px; outline: none; resize: vertical;
+      min-height: 82px; line-height: 1.5;
+      transition: border-color .12s;
+    }
+    .form-textarea:focus { border-color: var(--purple); }
+    .form-textarea::placeholder { color: var(--text-faint); }
+    .form-select {
+      width: 100%; background: var(--bg-card);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      color: var(--text); font-size: 13px; font-family: inherit;
+      padding: 8px 28px 8px 10px; outline: none; cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238888a0'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 10px center;
+      transition: border-color .12s;
+    }
+    .form-select:hover, .form-select:focus { border-color: var(--purple); }
+    .form-select option { background: #18181f; }
+    .form-input {
+      width: 100%; background: var(--bg-card);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      color: var(--text); font-size: 13px; font-family: inherit;
+      padding: 8px 10px; outline: none;
+      transition: border-color .12s;
+    }
+    .form-input:focus { border-color: var(--purple); }
+    .form-input::placeholder { color: var(--text-faint); }
+    /* Chrome number input arrows hide */
+    .form-input[type=number]::-webkit-inner-spin-button { opacity: .4; }
+    .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .form-field { display: flex; flex-direction: column; gap: 5px; }
+    .form-field-label { font-size: 11px; color: var(--text-dim); }
+
+    /* Ref sheet tags */
+    .ref-tags-wrap {
+      display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+      min-height: 38px; background: var(--bg-card);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      padding: 6px 8px; transition: border-color .12s;
+    }
+    .ref-tags-wrap:has(.ref-add-btn:focus) { border-color: var(--purple); }
+    .ref-tag {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: var(--purple-glow); border: 1px solid rgba(123,111,240,.3);
+      border-radius: 20px; padding: 3px 8px 3px 10px;
+      font-size: 12px; color: var(--purple);
+    }
+    .ref-tag-del {
+      background: none; border: none; color: var(--purple);
+      cursor: pointer; font-size: 11px; padding: 0; line-height: 1; opacity: .7;
+    }
+    .ref-tag-del:hover { opacity: 1; }
+    .ref-add-wrap { position: relative; }
+    .ref-add-btn {
+      background: none; border: 1px dashed var(--border); border-radius: 20px;
+      color: var(--text-dim); font-size: 12px; font-family: inherit;
+      padding: 3px 10px; cursor: pointer; white-space: nowrap;
+      transition: border-color .12s, color .12s;
+    }
+    .ref-add-btn:hover { border-color: var(--purple); color: var(--purple); }
+    .ref-dropdown {
+      position: absolute; top: calc(100% + 5px); left: 0;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); min-width: 200px;
+      max-height: 220px; overflow-y: auto; z-index: 50;
+      box-shadow: 0 6px 20px rgba(0,0,0,.5); display: none;
+    }
+    .ref-dropdown.open { display: block; }
+    .ref-dropdown-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px; font-size: 13px; color: var(--text);
+      cursor: pointer; transition: background .1s;
+    }
+    .ref-dropdown-item:hover { background: var(--bg-hover); }
+    .ref-dropdown-item img { width: 26px; height: 22px; object-fit: cover; border-radius: 2px; flex-shrink: 0; }
+    .ref-dropdown-item .di-icon { font-size: 14px; flex-shrink: 0; }
+    .di-cat {
+      font-size: 10px; color: var(--purple); background: var(--purple-glow);
+      border-radius: 3px; padding: 1px 5px; flex-shrink: 0;
+    }
+    .ref-dropdown-empty { padding: 14px; font-size: 12px; color: var(--text-faint); text-align: center; }
+
+    /* ═══════════════════════════════════════
+       CENTER PANEL – MULTI SHOT TABLE
+    ═══════════════════════════════════════ */
+    .multishot-wrap { display:flex; flex-direction:column; height:100%; }
+    .multishot-topbar {
+      display:flex; align-items:center; gap:10px;
+      padding:10px 16px; border-bottom:1px solid var(--border-dim);
+      flex-shrink:0; background:var(--bg-panel);
+    }
+    .ms-topbar-label { font-size:12px; color:var(--text-dim); }
+    .ms-total-input {
+      width:70px; background:var(--bg-card);
+      border:1px solid var(--border); border-radius:var(--radius-sm);
+      color:var(--text); font-size:13px; font-family:inherit;
+      padding:5px 8px; outline:none; text-align:center;
+      transition:border-color .12s;
+    }
+    .ms-total-input:focus { border-color:var(--purple); }
+    .ms-total-input::-webkit-inner-spin-button { opacity:.3; }
+    .ms-topbar-unit { font-size:12px; color:var(--text-faint); }
+
+    .shot-table-scroll { flex:1; overflow:auto; }
+
+    .shot-table { border-collapse:collapse; min-width:720px; table-layout:fixed; }
+    .shot-table th {
+      background:var(--bg-panel); color:var(--text-dim);
+      font-size:10px; font-weight:700; letter-spacing:.06em;
+      text-transform:uppercase; text-align:left;
+      padding:7px 8px; border-bottom:1px solid var(--border);
+      white-space:nowrap; position:sticky; top:0; z-index:10;
+    }
+    .shot-table td {
+      padding:3px 5px; border-bottom:1px solid var(--border-dim);
+      vertical-align:middle; overflow:hidden;
+    }
+    .shot-table td.col-refs { overflow:visible; }
+    .shot-table tr:hover td { background:rgba(255,255,255,.018); }
+    .shot-table tr.dragging { opacity:.35; }
+    .shot-table tr.drag-over > td { border-top:2px solid var(--purple); }
+
+    .col-drag  { width:28px; }
+    .col-num   { width:36px; }
+    .col-refs  { width:160px; }
+    .col-size  { width:120px; }
+    .col-angle { width:100px; }
+    .col-cam   { width:120px; }
+    .col-dur   { width:50px; }
+    .col-dial  { width:100px; }
+    .col-memo  { width:90px; }
+    .col-del   { width:32px; }
+
+    .cell-num-label {
+      text-align:center; color:var(--text-faint); font-size:12px;
+      padding:5px 4px; user-select:none; pointer-events:none;
+    }
+
+    /* Column resize handle */
+    .col-rz {
+      position:absolute; right:-2px; top:0; bottom:0; width:5px;
+      cursor:col-resize; z-index:11;
+    }
+    .col-rz:hover, .col-rz.rz-active { background:var(--purple); opacity:.5; }
+    .shot-table.resizing { user-select:none; cursor:col-resize; }
+
+    .drag-handle {
+      cursor:grab; color:var(--text-faint); font-size:13px;
+      display:flex; align-items:center; justify-content:center;
+      height:30px; user-select:none; letter-spacing:-.1em;
+      transition:color .12s;
+    }
+    .drag-handle:active { cursor:grabbing; }
+    .shot-table tr:hover .drag-handle { color:var(--text-dim); }
+
+    .cell-input {
+      width:100%; background:none; border:none; border-radius:var(--radius-sm);
+      color:var(--text); font-size:13px; font-family:inherit;
+      padding:5px 6px; outline:none; transition:background .12s;
+    }
+    .cell-input:focus { background:var(--bg-card); }
+    .cell-input::placeholder { color:var(--text-faint); }
+    .cell-input[type=number] { text-align:center; }
+    .cell-input[type=number]::-webkit-inner-spin-button { opacity:.3; }
+
+    .cell-select {
+      width:100%; background:none; border:none; border-radius:var(--radius-sm);
+      color:var(--text); font-size:12px; font-family:inherit;
+      padding:5px 6px; outline:none; cursor:pointer;
+      appearance:none; transition:background .12s;
+    }
+    .cell-select:hover,.cell-select:focus { background:var(--bg-card); }
+    .cell-select option { background:#18181f; }
+
+    .shot-ref-cell {
+      position:relative; cursor:pointer; min-height:30px;
+      display:flex; flex-wrap:wrap; gap:3px; align-items:center;
+      padding:4px 6px; border-radius:var(--radius-sm);
+      transition:background .12s;
+    }
+    .shot-ref-cell:hover { background:var(--bg-card); }
+    .shot-ref-chip {
+      font-size:10px; color:var(--purple);
+      background:var(--purple-glow); border:1px solid rgba(123,111,240,.25);
+      border-radius:3px; padding:1px 5px; white-space:nowrap; cursor:pointer;
+    }
+    .shot-ref-chip:hover { opacity:.7; }
+    .shot-ref-hint { font-size:11px; color:var(--text-faint); pointer-events:none; }
+    .shot-ref-dropdown {
+      position:absolute; top:calc(100% + 3px); left:0;
+      background:var(--bg-card); border:1px solid var(--border);
+      border-radius:var(--radius-sm); min-width:190px;
+      max-height:190px; overflow-y:auto; z-index:200;
+      box-shadow:0 6px 20px rgba(0,0,0,.55); display:none;
+    }
+    .shot-ref-dropdown.open { display:block; }
+    .shot-dd-item {
+      display:flex; align-items:center; gap:6px;
+      padding:7px 10px; font-size:12px; color:var(--text); cursor:pointer;
+      transition:background .1s;
+    }
+    .shot-dd-item:hover { background:var(--bg-hover); }
+    .shot-dd-check { width:14px; font-size:11px; text-align:center; color:var(--purple); }
+    .shot-dd-cat { font-size:10px; color:var(--purple); background:var(--purple-glow); border-radius:3px; padding:1px 4px; }
+
+    .btn-del-shot {
+      background:none; border:none; color:var(--text-faint);
+      cursor:pointer; font-size:13px; padding:3px 6px;
+      border-radius:3px; width:100%; display:flex; align-items:center; justify-content:center;
+      transition:color .12s;
+    }
+    .btn-del-shot:hover { color:var(--red); }
+
+    .btn-add-shot {
+      flex-shrink:0; background:none; border:none;
+      border-top:1px dashed var(--border); color:var(--text-dim);
+      font-size:13px; font-family:inherit; padding:11px 20px;
+      cursor:pointer; text-align:left;
+      transition:color .15s, background .15s;
+    }
+    .btn-add-shot:hover { color:var(--purple); background:rgba(123,111,240,.04); }
+
+    /* Cut block in right panel */
+    .cut-block { }
+    .cut-separator {
+      display:flex; align-items:center; gap:0; padding:12px 0 6px;
+    }
+    .cut-sep-line { flex:1; height:1px; background:var(--border); }
+    .cut-sep-label {
+      font-size:11px; font-weight:700; letter-spacing:.06em;
+      color:var(--text-dim); padding:0 10px; white-space:nowrap;
+      font-family:var(--mono);
+    }
+    .cut-footer { height:1px; background:var(--border-dim); margin:6px 0 4px; }
+
+    /* ═══════════════════════════════════════
+       RIGHT PANEL – PROMPT OUTPUT
+    ═══════════════════════════════════════ */
+    .prompt-output { display: flex; flex-direction: column; gap: 0; }
+
+    .output-section-label {
+      font-size: 10px; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--text-faint);
+      padding: 16px 0 8px;
+      border-top: 1px solid var(--border-dim);
+    }
+    .output-section-label:first-child { border-top: none; padding-top: 0; }
+
+    .prompt-part {
+      position: relative; padding: 8px 0;
+      border-bottom: 1px solid var(--border-dim);
+    }
+    .prompt-part:last-child { border-bottom: none; }
+
+    .part-header { display: flex; align-items: flex-start; gap: 8px; }
+    .part-key {
+      font-family: var(--mono); font-size: 10px; font-weight: 700;
+      letter-spacing: .04em; color: var(--purple);
+      background: var(--purple-glow); border: 1px solid rgba(123,111,240,.25);
+      border-radius: 3px; padding: 2px 7px;
+      white-space: nowrap; flex-shrink: 0; margin-top: 1px;
+    }
+    .part-val {
+      flex: 1; font-family: var(--mono); font-size: 12px;
+      color: var(--text-dim); line-height: 1.55; word-break: break-word;
+    }
+    .part-revise-btn {
+      background: none; border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text-faint);
+      font-size: 11px; font-family: inherit; padding: 2px 8px;
+      cursor: pointer; white-space: nowrap; flex-shrink: 0;
+      opacity: 0; transition: opacity .12s, border-color .12s, color .12s;
+    }
+    .prompt-part:hover .part-revise-btn { opacity: 1; }
+    .part-revise-btn:hover { border-color: var(--purple); color: var(--purple); }
+    .part-revise-btn.active {
+      opacity: 1; border-color: var(--purple);
+      color: var(--purple); background: var(--purple-glow);
+    }
+
+    .part-edit-area {
+      display: none; margin-top: 8px;
+      flex-direction: column; gap: 6px;
+    }
+    .part-edit-area.visible { display: flex; }
+    .part-edit-area textarea {
+      width: 100%; background: var(--bg-card);
+      border: 1px solid var(--purple); border-radius: var(--radius-sm);
+      color: var(--text); font-size: 12px; font-family: inherit;
+      padding: 7px 9px; outline: none; resize: vertical; min-height: 46px; line-height: 1.4;
+    }
+    .part-edit-area textarea::placeholder { color: var(--text-faint); }
+    .part-edit-actions { display: flex; gap: 6px; justify-content: flex-end; }
+
+    .prompt-final-wrap {
+      position: relative; background: var(--bg-card);
+      border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px;
+    }
+    .prompt-final-text {
+      font-family: var(--mono); font-size: 12px; color: var(--text);
+      line-height: 1.6; white-space: pre-wrap; word-break: break-word;
+      max-height: 180px; overflow-y: auto;
+    }
+    .copy-btn {
+      position: absolute; top: 8px; right: 8px;
+      background: var(--bg-hover); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text-dim);
+      font-size: 11px; font-family: inherit; padding: 3px 9px;
+      cursor: pointer; transition: all .12s;
+    }
+    .copy-btn:hover { border-color: var(--purple); color: var(--purple); }
+    .copy-btn.copied { border-color: var(--green); color: var(--green); background: rgba(76,175,125,.1); }
+
+    .attachment-note {
+      font-size: 11px; color: var(--text-faint); margin-bottom: 8px; line-height: 1.45;
+    }
+    .attachment-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 0; border-bottom: 1px solid var(--border-dim); font-size: 12px;
+    }
+    .attachment-item:last-child { border-bottom: none; }
+    .attachment-num {
+      width: 18px; height: 18px; background: var(--bg-hover);
+      border: 1px solid var(--border); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700; color: var(--text-dim); flex-shrink: 0;
+    }
+    .attachment-thumb {
+      width: 32px; height: 26px; object-fit: cover; border-radius: 3px; flex-shrink: 0;
+    }
+    .attachment-thumb-ph {
+      width: 32px; height: 26px; background: var(--bg-hover);
+      border-radius: 3px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 12px;
+    }
+    .attachment-label { flex: 1; color: var(--text); }
+    .attachment-count { color: var(--text-faint); font-size: 11px; }
+
+    .prompt-error {
+      background: rgba(224,85,85,.08); border: 1px solid rgba(224,85,85,.3);
+      border-radius: var(--radius-sm); padding: 12px;
+      font-size: 13px; color: var(--red); line-height: 1.5; white-space: pre-wrap;
+    }
+    .prompt-loading {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 14px; padding: 40px;
+      color: var(--text-dim); font-size: 13px;
+    }
+    .regen-row { margin-top: 20px; text-align: center; }
+    .btn-regen {
+      background: none; border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text-dim);
+      font-size: 13px; font-family: inherit; padding: 8px 20px; cursor: pointer;
+      transition: border-color .15s, color .15s;
+    }
+    .btn-regen:hover { border-color: var(--purple); color: var(--purple); }
+
+    /* ─── Toast ─── */
+    #toast-container {
+      position: fixed; bottom: 24px; right: 24px;
+      display: flex; flex-direction: column; gap: 8px;
+      z-index: 9999; pointer-events: none;
+    }
+    .toast {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 10px 16px;
+      font-size: 13px; color: var(--text);
+      box-shadow: 0 4px 20px rgba(0,0,0,.5);
+      opacity: 0; transform: translateY(6px);
+      transition: opacity .2s, transform .2s;
+      max-width: 280px; pointer-events: auto;
+    }
+    .toast.visible { opacity: 1; transform: translateY(0); }
+    .toast.success { border-color: rgba(76,175,125,.45); }
+    .toast.error   { border-color: rgba(224,85,85,.45); color: var(--red); }
+
+    /* ─── Settings dropdown ─── */
+    .topbar-settings-wrap { position: relative; }
+    .topbar-settings-btn {
+      background: none; border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text-dim);
+      font-size: 14px; width: 30px; height: 30px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: all .12s;
+    }
+    .topbar-settings-btn:hover { border-color: var(--purple); color: var(--text); }
+    .settings-dropdown {
+      position: absolute; top: calc(100% + 6px); right: 0;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); min-width: 210px; z-index: 200;
+      box-shadow: 0 6px 20px rgba(0,0,0,.45); display: none;
+    }
+    .settings-dropdown.open { display: block; }
+    .settings-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 9px 14px; font-size: 13px; color: var(--text-dim);
+      cursor: pointer; transition: background .1s;
+    }
+    .settings-item:hover { background: var(--bg-hover); color: var(--text); }
+    .settings-item.danger:hover { color: var(--red); }
+    .settings-item.settings-item-info { cursor: default; font-size: 11px; color: var(--text-faint); }
+    .settings-item.settings-item-info:hover { background: none; color: var(--text-faint); }
+    .settings-divider { border: none; border-top: 1px solid var(--border-dim); margin: 4px 0; }
+
+    /* ─── API key section ─── */
+    .apikey-input-wrap {
+      flex: 1; position: relative; display: flex; align-items: center;
+    }
+    .apikey-input-wrap input {
+      flex: 1; background: var(--bg-card);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      color: var(--text); font-size: 11px; font-family: var(--mono);
+      padding: 6px 28px 6px 9px; outline: none; transition: border-color .15s;
+    }
+    .apikey-input-wrap input::placeholder { color: var(--text-faint); }
+    .apikey-input-wrap input:focus { border-color: var(--purple); }
+    .btn-eye {
+      position: absolute; right: 6px;
+      background: none; border: none; color: var(--text-faint);
+      cursor: pointer; font-size: 13px; padding: 0; line-height: 1;
+      transition: color .12s;
+    }
+    .btn-eye:hover { color: var(--text); }
+
+    /* ─── Stale banner ─── */
+    .stale-banner {
+      background: rgba(123,111,240,.07); border: 1px solid rgba(123,111,240,.2);
+      border-radius: var(--radius-sm); padding: 8px 12px;
+      font-size: 12px; color: var(--purple);
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 14px;
+    }
+    .stale-regen-btn {
+      background: var(--purple); border: none; border-radius: var(--radius-sm);
+      color: #fff; font-size: 11px; font-family: inherit;
+      padding: 3px 10px; cursor: pointer; margin-left: auto; white-space: nowrap;
+    }
+    .stale-regen-btn:hover { background: var(--purple-dim); }
+
+    /* ─── Polish tweaks ─── */
+    /* Topbar right area gap */
+    .topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+    /* Platform badge pulse on stale */
+    .platform-badge.stale { border-color: rgba(224,180,0,.4); color: #c8a800; background: rgba(200,168,0,.08); }
+    .platform-badge.stale::after { content: ' ↺'; }
+
+    /* ─── Dot loading ─── */
+    .dot-loading { display: inline-flex; gap: 4px; align-items: center; }
+    .dot-loading span {
+      width: 5px; height: 5px; background: var(--purple);
+      border-radius: 50%; animation: dot-bounce 1.2s infinite ease-in-out;
+    }
+    .dot-loading span:nth-child(2) { animation-delay: .2s; }
+    .dot-loading span:nth-child(3) { animation-delay: .4s; }
+    @keyframes dot-bounce {
+      0%,80%,100% { transform: scale(.6); opacity: .4; }
+      40%          { transform: scale(1);  opacity: 1;  }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════
+     PLATFORM SELECTION SCREEN
+═══════════════════════════════════════ -->
+<div id="platform-screen">
+  <div class="platform-header">
+    <div class="platform-logo">REVON</div>
+    <div class="platform-title">PromPD</div>
+    <div class="platform-subtitle">AI 영상 생성 플랫폼을 선택하세요</div>
+  </div>
+  <div class="platform-grid">
+    <div class="platform-card" data-platform="kling">
+      <div class="p-icon">⚡</div>
+      <div class="p-name">Kling 3.0</div>
+      <div class="p-tag">OmniRef 방식</div>
+    </div>
+    <div class="platform-card" data-platform="runway">
+      <div class="p-icon">🛤</div>
+      <div class="p-name">Runway Gen-4</div>
+      <div class="p-tag">이미지→영상</div>
+    </div>
+    <div class="platform-card" data-platform="seedance">
+      <div class="p-icon">🌱</div>
+      <div class="p-name">Seedance 2.0</div>
+      <div class="p-tag">@AssetName 방식</div>
+    </div>
+    <div class="platform-card" data-platform="hailuo">
+      <div class="p-icon">🌊</div>
+      <div class="p-name">Hailuo</div>
+      <div class="p-tag">MiniMax</div>
+    </div>
+    <div class="platform-card" data-platform="sora">
+      <div class="p-icon">☀️</div>
+      <div class="p-name">Sora</div>
+      <div class="p-tag">OpenAI</div>
+    </div>
+    <div class="platform-card" data-platform="wan">
+      <div class="p-icon">🎋</div>
+      <div class="p-name">Wan 2.1</div>
+      <div class="p-tag">Alibaba</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     WORKSPACE
+═══════════════════════════════════════ -->
+<div id="workspace">
+
+  <!-- Top Bar -->
+  <div id="topbar">
+    <div class="topbar-brand">
+      <span class="brand-rev">REVON</span>
+      <span class="brand-app">PromPD</span>
+    </div>
+    <div class="topbar-sep"></div>
+    <div class="platform-select-wrap">
+      <span class="platform-select-label">플랫폼</span>
+      <select id="topbar-platform-select">
+        <option value="kling">Kling 3.0</option>
+        <option value="runway">Runway Gen-4</option>
+        <option value="seedance">Seedance 2.0</option>
+        <option value="hailuo">Hailuo</option>
+        <option value="sora">Sora</option>
+        <option value="wan">Wan 2.1</option>
+      </select>
+    </div>
+    <div class="shot-mode-toggle">
+      <button id="btn-single" class="active" onclick="setShotMode('single')">싱글샷</button>
+      <button id="btn-multi"  onclick="setShotMode('multi')">멀티샷</button>
+    </div>
+    <div class="topbar-sep"></div>
+    <div class="topbar-settings-wrap">
+      <button class="topbar-settings-btn" onclick="toggleSettings(event)" title="설정">⚙</button>
+      <div class="settings-dropdown" id="settings-dropdown">
+        <div class="settings-item settings-item-info" id="storage-info">💾 저장 용량 계산 중...</div>
+        <hr class="settings-divider" />
+        <div class="settings-item danger" onclick="resetAllData()">🗑 모든 데이터 초기화</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3-Panel Area -->
+  <div id="panel-area">
+
+    <!-- ─── Left Panel ─── -->
+    <div id="panel-left" class="panel">
+      <div class="panel-header">
+        <span class="panel-title">레퍼런스 시트</span>
+      </div>
+
+      <!-- List View -->
+      <div id="left-list-view">
+        <div class="category-tabs" id="category-tabs">
+          <button class="cat-tab active" data-cat="인물">인물</button>
+          <button class="cat-tab" data-cat="장소">장소</button>
+          <button class="cat-tab" data-cat="소품">소품</button>
+          <button class="cat-tab" data-cat="의상">의상</button>
+          <button class="cat-tab" data-cat="분위기">분위기</button>
+          <button class="cat-tab" data-cat="카메라">카메라</button>
+        </div>
+        <div class="panel-body">
+          <div class="sheet-list" id="sheet-list"></div>
+          <div class="add-sheet-form" id="add-sheet-form">
+            <input id="new-sheet-name" placeholder="이름 입력..." maxlength="20" />
+            <button class="btn-confirm" onclick="confirmAddSheet()">추가</button>
+            <button class="btn-cancel"  onclick="cancelAddSheet()">✕</button>
+          </div>
+          <button class="btn-add-sheet" id="btn-add-sheet" onclick="showAddSheetForm()">＋ 시트 추가</button>
+        </div>
+      </div>
+
+      <!-- Standalone Ref Images -->
+      <div class="ref-images-section" id="ref-images-section">
+        <div class="ref-images-label">
+          <span>레퍼런스 이미지</span>
+          <button class="btn-add-ref-img" onclick="triggerRefImageUpload()">＋ 추가</button>
+        </div>
+        <div class="ref-img-strip" id="ref-img-strip"></div>
+      </div>
+
+      <!-- Editor View -->
+      <div id="left-editor-view">
+        <div class="sheet-editor-top">
+          <button class="btn-back" onclick="closeSheet()" title="목록으로">←</button>
+          <div class="sheet-editor-label">
+            <span class="sheet-cat-badge" id="editor-cat-badge"></span>
+            <span class="sheet-name-sep">_</span>
+            <input class="sheet-name-edit" id="editor-name-input"
+              placeholder="이름" maxlength="20" />
+          </div>
+        </div>
+        <div class="panel-body" id="sheet-editor-body"></div>
+      </div>
+    </div>
+
+    <!-- ─── Center Panel ─── -->
+    <div id="panel-center" class="panel">
+      <div class="panel-header">
+        <span class="panel-title" id="center-panel-title">싱글샷</span>
+      </div>
+      <div class="panel-body" id="center-panel-body">
+        <div class="panel-placeholder">
+          <div class="ph-icon">🎬</div>
+          <div class="ph-label">샷 정보를 입력하세요</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── Right Panel ─── -->
+    <div id="panel-right" class="panel">
+      <div class="panel-header">
+        <span class="panel-title">프롬프트 출력</span>
+        <span class="platform-badge" id="right-platform-badge">Kling 3.0</span>
+      </div>
+      <div class="panel-body" id="right-panel-body">
+        <div class="panel-placeholder">
+          <div class="ph-icon">✨</div>
+          <div class="ph-label">프롬프트가 여기에 생성됩니다</div>
+          <button class="btn-generate" onclick="generatePrompt()">프롬프트 생성</button>
+        </div>
+      </div>
+      <div class="apikey-section" id="apikey-section">
+        <div class="api-provider-row">
+          <div class="api-provider-tabs" id="api-provider-tabs">
+            <button class="api-provider-tab active" data-prov="claude" onclick="setApiProvider('claude')">Claude</button>
+            <button class="api-provider-tab" data-prov="gpt" onclick="setApiProvider('gpt')">GPT</button>
+            <button class="api-provider-tab" data-prov="gemini" onclick="setApiProvider('gemini')">Gemini</button>
+          </div>
+          <select class="api-model-select" id="api-model-select" onchange="setApiModel(this.value)"></select>
+        </div>
+        <div class="api-key-row">
+          <div class="apikey-input-wrap" style="flex:1">
+            <input type="password" id="api-key-input" placeholder="sk-ant-api03-..." />
+            <button class="btn-eye" id="btn-eye" onclick="toggleApiKeyVis()" title="보기/숨기기">◉</button>
+          </div>
+          <button class="btn-small" onclick="saveApiKey()">저장</button>
+        </div>
+        <div class="api-status" id="api-status">키 미등록</div>
+      </div>
+    </div>
+
+  </div><!-- /panel-area -->
+</div><!-- /workspace -->
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<!-- Hidden file input for image upload -->
+<input type="file" id="img-file-input" accept="image/*" multiple style="display:none" />
+
+<script>
+// ═══════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════
+const PLATFORM_LABELS = {
+  kling:'Kling 3.0', runway:'Runway Gen-4', seedance:'Seedance 2.0',
+  hailuo:'Hailuo', sora:'Sora', wan:'Wan 2.1',
+};
+
+const CAT_ICONS = {
+  인물:'👤', 장소:'📍', 소품:'🎒', 의상:'👔', 분위기:'🎨', 카메라:'🎥',
+};
+
+const ANGLE_OPTS = [
+  ['','AI 판단'],['eye-level','아이레벨'],['low','로우 앵글'],
+  ['high','하이 앵글'],['bird','조감 / 오버헤드'],['worm','웜아이'],
+  ['dutch','더치 앵글'],['ots','OTS (어깨너머)'],['pov','POV'],
+];
+
+const SHOT_SIZE_OPTS = [
+  ['','AI 판단'],['ews','EWS (극단 와이드)'],['ws','WS (와이드)'],
+  ['fs','FS (풀샷)'],['mws','MWS (미디엄 와이드)'],['ms','MS (미디엄)'],
+  ['mcu','MCU (미디엄 클로즈업)'],['cu','CU (클로즈업)'],['ecu','ECU (익스트림 클로즈업)'],
+];
+
+const PROVIDER_MODELS = {
+  claude: [['claude-opus-4-8','Opus 4.8'],['claude-sonnet-4-6','Sonnet 4.6'],['claude-haiku-4-5-20251001','Haiku 4.5']],
+  gpt:    [['gpt-4o','GPT-4o'],['gpt-4o-mini','GPT-4o mini'],['o1-mini','o1-mini']],
+  gemini: [['gemini-2.0-flash','Gemini 2.0 Flash'],['gemini-1.5-pro','Gemini 1.5 Pro'],['gemini-1.5-flash','Gemini 1.5 Flash']],
+};
+
+const CATEGORY_FIELDS = {
+  인물: [
+    { key:'이름',       type:'text',     ph:'예) 김민준' },
+    { key:'나이대',     type:'text',     ph:'예) 30대 중반' },
+    { key:'성별',       type:'text',     ph:'예) 남성' },
+    { key:'외모특징',   type:'textarea', ph:'피곤한 눈빛, 3일치 수염...' },
+    { key:'역할/맥락',  type:'textarea', ph:'주인공, 형사 출신...' },
+  ],
+  장소: [
+    { key:'장소명',   type:'text',     ph:'예) 서울 골목길' },
+    { key:'시대',     type:'text',     ph:'예) 2024년 현대' },
+    { key:'분위기',   type:'textarea', ph:'어둡고 습한, 좁은...' },
+    { key:'특이사항', type:'textarea', ph:'가로등이 깜빡임, 낙서 벽...' },
+  ],
+  소품: [
+    { key:'이름',     type:'text',     ph:'예) 가죽 가방' },
+    { key:'재질·색상', type:'text',    ph:'예) 갈색 소가죽' },
+    { key:'용도·맥락', type:'textarea', ph:'주인공이 항상 들고 다니는...' },
+  ],
+  의상: [
+    { key:'이름',      type:'text',     ph:'예) 주인공 코트' },
+    { key:'시대·스타일', type:'text',   ph:'예) 현대, 캐주얼' },
+    { key:'색상·소재', type:'text',     ph:'예) 네이비 울 코트' },
+    { key:'착용인물',  type:'text',     ph:'예) 인물_주인공' },
+  ],
+  분위기: [
+    { key:'레퍼런스설명', type:'textarea', ph:'어떤 무드를 참조할지 설명...' },
+    { key:'참조요소',     type:'checks',  opts:['색감','조명','질감','톤'] },
+  ],
+  카메라: [
+    { key:'레퍼런스설명', type:'textarea', ph:'어떤 카메라 스타일을 참조할지...' },
+    { key:'참조요소',     type:'checks',  opts:['앵글','무브먼트','프레이밍'] },
+  ],
+};
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+const state = {
+  platform: null,
+  shotMode: 'single',
+  activeCategory: '인물',
+  activeSheet: null,
+  apiProvider: 'claude',
+  apiModel: 'claude-sonnet-4-6',
+  refImages: [],
+  sheets: {},
+  shots: [],
+  prompts: { structured:{}, final:'' },
+  singleShot: { description:'', refs:[], shotSize:'', angle:'', cameraMove:'', mood:'', lighting:'', ratio:'', duration:'', dialogue:'' },
+  generatedParts: {},
+  generatedFinal: '',
+  generatedKorean: {},
+  generatedFinalKorean: '',
+  multiShot: { totalDuration:'', generatedShots:[], generatedFinal:'', generatedFinalKorean:'' },
+  colWidths: null,
+  promptStale: false,
+};
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+function init() {
+  loadFromStorage();
+
+  initApiSection();
+
+  if (state.platform) enterWorkspace(state.platform);
+
+  // File input handler
+  document.getElementById('img-file-input').addEventListener('change', function() {
+    if (!state._imgUploadTarget) return;
+    handleImageFiles(state._imgUploadTarget, Array.from(this.files));
+    this.value = '';
+    state._imgUploadTarget = null;
+  });
+
+  // Name input: confirm on Enter
+  document.getElementById('new-sheet-name').addEventListener('keydown', e => {
+    if (e.key === 'Enter') confirmAddSheet();
+    if (e.key === 'Escape') cancelAddSheet();
+  });
+}
+
+// ═══════════════════════════════════════════
+// PLATFORM
+// ═══════════════════════════════════════════
+document.querySelectorAll('.platform-card').forEach(card => {
+  card.addEventListener('click', () => enterWorkspace(card.dataset.platform));
+});
+
+function enterWorkspace(platform) {
+  state.platform = platform;
+  document.getElementById('topbar-platform-select').value = platform;
+  document.getElementById('right-platform-badge').textContent = PLATFORM_LABELS[platform] || platform;
+  document.getElementById('platform-screen').style.display = 'none';
+  document.getElementById('workspace').classList.add('visible');
+  saveToStorage();
+  renderAll();
+  renderRefImageStrip();
+  initApiSection();
+}
+
+document.getElementById('topbar-platform-select').addEventListener('change', function() {
+  state.platform = this.value;
+  const badge = document.getElementById('right-platform-badge');
+  badge.textContent = PLATFORM_LABELS[state.platform];
+  // Mark prompts as stale if there's existing output
+  const hasOutput = Object.keys(state.generatedParts).length || state.multiShot?.generatedShots?.length;
+  if (hasOutput) {
+    badge.classList.add('stale');
+    state.promptStale = true;
+  }
+  saveToStorage();
+});
+
+// ═══════════════════════════════════════════
+// SHOT MODE
+// ═══════════════════════════════════════════
+function setShotMode(mode) {
+  state.shotMode = mode;
+  document.getElementById('btn-single').classList.toggle('active', mode === 'single');
+  document.getElementById('btn-multi').classList.toggle('active', mode === 'multi');
+  document.getElementById('center-panel-title').textContent = mode === 'single' ? '싱글샷' : '멀티샷';
+  renderCenterPanel();
+  saveToStorage();
+}
+
+// ═══════════════════════════════════════════
+// CATEGORY TABS
+// ═══════════════════════════════════════════
+document.getElementById('category-tabs').addEventListener('click', e => {
+  const tab = e.target.closest('.cat-tab');
+  if (!tab) return;
+  document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
+  tab.classList.add('active');
+  state.activeCategory = tab.dataset.cat;
+  state.activeSheet = null;
+  renderSheetList();
+  saveToStorage();
+});
+
+// ═══════════════════════════════════════════
+// ADD SHEET
+// ═══════════════════════════════════════════
+function showAddSheetForm() {
+  document.getElementById('btn-add-sheet').style.display = 'none';
+  const form = document.getElementById('add-sheet-form');
+  form.classList.add('visible');
+  document.getElementById('new-sheet-name').focus();
+}
+
+function cancelAddSheet() {
+  document.getElementById('add-sheet-form').classList.remove('visible');
+  document.getElementById('new-sheet-name').value = '';
+  document.getElementById('btn-add-sheet').style.display = '';
+}
+
+function confirmAddSheet() {
+  const input = document.getElementById('new-sheet-name');
+  const name = input.value.trim();
+  if (!name) { input.focus(); return; }
+
+  const label = `${state.activeCategory}_${name}`;
+  if (state.sheets[label]) {
+    input.style.borderColor = 'var(--red)';
+    setTimeout(() => { input.style.borderColor = ''; }, 1200);
+    input.focus();
+    return;
+  }
+
+  state.sheets[label] = {
+    category: state.activeCategory,
+    name,
+    images: [],
+    fields: {},
+  };
+
+  cancelAddSheet();
+  saveToStorage();
+  renderSheetList();
+  openSheet(label);
+}
+
+// ═══════════════════════════════════════════
+// SHEET OPEN / CLOSE
+// ═══════════════════════════════════════════
+function openSheet(label) {
+  const sheet = state.sheets[label];
+  if (!sheet) return;
+  state.activeSheet = label;
+
+  document.getElementById('left-list-view').style.display = 'none';
+  const ev = document.getElementById('left-editor-view');
+  ev.style.display = 'flex';
+
+  document.getElementById('editor-cat-badge').textContent = sheet.category;
+  const nameInput = document.getElementById('editor-name-input');
+  nameInput.value = sheet.name;
+
+  // Rename on blur
+  nameInput.onblur = () => renameSheet(label, nameInput.value);
+  nameInput.onkeydown = e => { if (e.key === 'Enter') nameInput.blur(); };
+
+  renderSheetEditor(label);
+}
+
+function closeSheet() {
+  state.activeSheet = null;
+  document.getElementById('left-editor-view').style.display = 'none';
+  document.getElementById('left-list-view').style.display = 'flex';
+  renderSheetList();
+}
+
+function renameSheet(oldLabel, rawName) {
+  const newName = rawName.trim();
+  if (!newName) {
+    document.getElementById('editor-name-input').value = state.sheets[oldLabel]?.name || '';
+    return;
+  }
+  const sheet = state.sheets[oldLabel];
+  if (!sheet) return;
+  const newLabel = `${sheet.category}_${newName}`;
+  if (newLabel === oldLabel) return;
+  if (state.sheets[newLabel]) {
+    document.getElementById('editor-name-input').value = sheet.name;
+    return;
+  }
+  sheet.name = newName;
+  state.sheets[newLabel] = sheet;
+  delete state.sheets[oldLabel];
+
+  // Update shot refs
+  state.shots.forEach(shot => {
+    shot.refs = (shot.refs || []).map(r => r === oldLabel ? newLabel : r);
+  });
+
+  state.activeSheet = newLabel;
+  // Re-bind blur with new label
+  const nameInput = document.getElementById('editor-name-input');
+  nameInput.onblur = () => renameSheet(newLabel, nameInput.value);
+
+  saveToStorage();
+}
+
+// ═══════════════════════════════════════════
+// RENDER SHEET LIST
+// ═══════════════════════════════════════════
+function renderSheetList() {
+  const list = document.getElementById('sheet-list');
+  const catSheets = Object.entries(state.sheets)
+    .filter(([, s]) => s.category === state.activeCategory);
+
+  if (!catSheets.length) {
+    list.innerHTML = `
+      <div class="sheet-empty">
+        <div class="empty-icon">${CAT_ICONS[state.activeCategory] || '📋'}</div>
+        <div>시트가 없습니다</div>
+      </div>`;
+    return;
+  }
+
+  list.innerHTML = catSheets.map(([label, sheet]) => {
+    const thumbHTML = sheet.images.length
+      ? `<img class="sheet-card-thumb" src="${sheet.images[0].dataUrl}" alt="" />`
+      : `<div class="sheet-card-thumb-ph">${CAT_ICONS[sheet.category] || '📋'}</div>`;
+    const imgCount = sheet.images.length
+      ? `이미지 ${sheet.images.length}장`
+      : '이미지 없음';
+    return `
+      <div class="sheet-card" onclick="openSheet('${esc(label)}')">
+        ${thumbHTML}
+        <div class="sheet-card-info">
+          <div class="sheet-card-label">${esc(label)}</div>
+          <div class="sheet-card-meta">${imgCount}</div>
+        </div>
+        <button class="sheet-card-del" onclick="event.stopPropagation();deleteSheet('${esc(label)}')" title="삭제">✕</button>
+      </div>`;
+  }).join('');
+}
+
+function deleteRefImage(id) {
+  state.refImages = (state.refImages || []).filter(r => r.id !== id);
+  saveToStorage();
+  renderRefImageStrip();
+}
+
+function deleteSheet(label) {
+  if (!confirm(`"${label}" 시트를 삭제할까요?`)) return;
+  delete state.sheets[label];
+  // Remove refs from shots
+  state.shots.forEach(shot => {
+    shot.refs = (shot.refs || []).filter(r => r !== label);
+  });
+  if (state.activeSheet === label) closeSheet();
+  saveToStorage();
+  renderSheetList();
+}
+
+// ═══════════════════════════════════════════
+// RENDER SHEET EDITOR
+// ═══════════════════════════════════════════
+function renderSheetEditor(label) {
+  const sheet = state.sheets[label];
+  if (!sheet) return;
+  const body = document.getElementById('sheet-editor-body');
+
+  const fields = CATEGORY_FIELDS[sheet.category] || [];
+
+  body.innerHTML = `
+    <div class="section-label">이미지 (최대 3장)</div>
+    <div class="img-slot-strip" id="img-strip-${esc(label)}"></div>
+    <hr class="fields-divider" />
+    ${fields.map(f => renderField(label, sheet, f)).join('')}
+  `;
+
+  renderImageSlots(label);
+  setupFieldListeners(label, fields, sheet);
+}
+
+function renderField(label, sheet, f) {
+  const val = sheet.fields[f.key] || '';
+  if (f.type === 'text') {
+    return `
+      <div class="field-row">
+        <label class="field-label">${f.key}</label>
+        <input class="field-input" data-label="${esc(label)}" data-key="${esc(f.key)}"
+          value="${esc(val)}" placeholder="${f.ph || ''}" />
+      </div>`;
+  }
+  if (f.type === 'textarea') {
+    return `
+      <div class="field-row">
+        <label class="field-label">${f.key}</label>
+        <textarea class="field-textarea" data-label="${esc(label)}" data-key="${esc(f.key)}"
+          placeholder="${f.ph || ''}">${esc(val)}</textarea>
+      </div>`;
+  }
+  if (f.type === 'checks') {
+    const checked = Array.isArray(val) ? val : [];
+    const pills = (f.opts || []).map(opt => `
+      <label class="check-pill ${checked.includes(opt) ? 'checked' : ''}"
+        data-label="${esc(label)}" data-key="${esc(f.key)}" data-opt="${esc(opt)}">
+        <input type="checkbox" ${checked.includes(opt) ? 'checked' : ''} />
+        ${opt}
+      </label>`).join('');
+    return `
+      <div class="field-row">
+        <label class="field-label">${f.key}</label>
+        <div class="field-checks">${pills}</div>
+      </div>`;
+  }
+  return '';
+}
+
+function setupFieldListeners(label, fields, sheet) {
+  const body = document.getElementById('sheet-editor-body');
+
+  body.querySelectorAll('.field-input, .field-textarea').forEach(el => {
+    el.addEventListener('input', () => {
+      const key = el.dataset.key;
+      const lbl = el.dataset.label;
+      if (state.sheets[lbl]) {
+        state.sheets[lbl].fields[key] = el.value;
+        saveToStorage();
+      }
+    });
+  });
+
+  body.querySelectorAll('.check-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      const key  = pill.dataset.key;
+      const opt  = pill.dataset.opt;
+      const lbl  = pill.dataset.label;
+      if (!state.sheets[lbl]) return;
+
+      let arr = state.sheets[lbl].fields[key];
+      if (!Array.isArray(arr)) arr = [];
+
+      if (arr.includes(opt)) {
+        arr = arr.filter(x => x !== opt);
+        pill.classList.remove('checked');
+        pill.querySelector('input').checked = false;
+      } else {
+        arr = [...arr, opt];
+        pill.classList.add('checked');
+        pill.querySelector('input').checked = true;
+      }
+      state.sheets[lbl].fields[key] = arr;
+      saveToStorage();
+    });
+  });
+}
+
+// ═══════════════════════════════════════════
+// IMAGE SLOTS
+// ═══════════════════════════════════════════
+function renderImageSlots(label) {
+  const sheet = state.sheets[label];
+  if (!sheet) return;
+  const strip = document.getElementById(`img-strip-${label}`);
+  if (!strip) return;
+
+  strip.innerHTML = '';
+
+  sheet.images.forEach((img, idx) => {
+    const slot = document.createElement('div');
+    slot.className = 'img-slot img-slot-filled';
+    slot.innerHTML = `
+      <img src="${img.dataUrl}" alt="ref ${idx+1}" />
+      <button class="img-slot-del-btn" title="삭제">✕</button>`;
+    slot.querySelector('.img-slot-del-btn').addEventListener('click', () => removeImage(label, idx));
+    strip.appendChild(slot);
+  });
+
+  if (sheet.images.length < 3) {
+    const addSlot = document.createElement('div');
+    addSlot.className = 'img-slot-add';
+    addSlot.innerHTML = `<span>＋</span><span class="slot-add-label">추가</span>`;
+    addSlot.addEventListener('click', () => triggerImageUpload(label));
+    setupDropZone(addSlot, label);
+    strip.appendChild(addSlot);
+  }
+}
+
+function triggerImageUpload(label) {
+  state._imgUploadTarget = label;
+  const remaining = 3 - (state.sheets[label]?.images.length || 0);
+  const input = document.getElementById('img-file-input');
+  input.multiple = remaining > 1;
+  input.click();
+}
+
+function setupDropZone(el, label) {
+  el.addEventListener('dragover', e => {
+    e.preventDefault();
+    el.classList.add('drag-over');
+  });
+  el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+  el.addEventListener('drop', e => {
+    e.preventDefault();
+    el.classList.remove('drag-over');
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+    handleImageFiles(label, files);
+  });
+}
+
+async function handleImageFiles(label, files) {
+  const sheet = state.sheets[label];
+  if (!sheet) return;
+  const toProcess = files.filter(f => f.type.startsWith('image/')).slice(0, 3 - sheet.images.length);
+  if (!toProcess.length) return;
+
+  for (const file of toProcess) {
+    try {
+      const raw = await readFileAsDataUrl(file);
+      const compressed = await compressImage(raw);
+      sheet.images.push({ dataUrl: compressed, mimeType: 'image/jpeg', name: file.name });
+    } catch (e) {
+      toast('이미지 처리 실패: ' + file.name, 'error');
+    }
+  }
+  saveToStorage();
+  renderImageSlots(label);
+  renderSheetList();
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = e => resolve(e.target.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+function compressImage(dataUrl, maxDim = 1200, quality = 0.78) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (Math.max(w, h) > maxDim) {
+        const r = maxDim / Math.max(w, h);
+        w = Math.round(w * r); h = Math.round(h * r);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
+function removeImage(label, idx) {
+  const sheet = state.sheets[label];
+  if (!sheet) return;
+  sheet.images.splice(idx, 1);
+  saveToStorage();
+  renderImageSlots(label);
+  renderSheetList();
+}
+
+// ── Standalone Reference Images ───────────────────
+let _refImgUploadInput = null;
+
+function triggerRefImageUpload() {
+  if (!_refImgUploadInput) {
+    _refImgUploadInput = document.createElement('input');
+    _refImgUploadInput.type = 'file';
+    _refImgUploadInput.accept = 'image/*';
+    _refImgUploadInput.multiple = true;
+    _refImgUploadInput.style.display = 'none';
+    document.body.appendChild(_refImgUploadInput);
+    _refImgUploadInput.addEventListener('change', e => {
+      handleRefImageFiles(Array.from(e.target.files || []));
+      _refImgUploadInput.value = '';
+    });
+  }
+  _refImgUploadInput.click();
+}
+
+async function handleRefImageFiles(files) {
+  const toProcess = files.filter(f => f.type.startsWith('image/')).slice(0, 10);
+  for (const file of toProcess) {
+    try {
+      const raw = await readFileAsDataUrl(file);
+      const compressed = await compressImage(raw);
+      const name = file.name.replace(/\.[^.]+$/, '') || ('ref_' + Date.now());
+      state.refImages.push({ id: 'ri_' + Date.now() + '_' + Math.random().toString(36).slice(2,4), name, dataUrl: compressed, mimeType: 'image/jpeg' });
+    } catch { /* skip */ }
+  }
+  saveToStorage();
+  renderRefImageStrip();
+}
+
+function renderRefImageStrip() {
+  const strip = document.getElementById('ref-img-strip');
+  if (!strip) return;
+  strip.innerHTML = '';
+  (state.refImages || []).forEach(ri => {
+    const chip = document.createElement('div');
+    chip.className = 'ref-img-chip';
+    chip.title = ri.name;
+    chip.innerHTML = `<img src="${ri.dataUrl}" alt="${esc(ri.name)}" />
+      <button class="ref-img-chip-del" onclick="deleteRefImage('${ri.id}')">✕</button>`;
+    strip.appendChild(chip);
+  });
+}
+
+// ═══════════════════════════════════════════
+// RENDER ALL
+// ═══════════════════════════════════════════
+function renderAll() {
+  renderSheetList();
+  renderCenterPanel();
+  renderPromptOutput();
+}
+
+function renderCenterPanel() {
+  const body = document.getElementById('center-panel-body');
+  if (state.shotMode === 'multi') {
+    renderMultiShotTable();
+    return;
+  }
+  body.innerHTML = buildSingleShotForm();
+  bindSingleShotForm();
+}
+
+// ── Single Shot Form ──────────────────────────────
+function buildSingleShotForm() {
+  const s = state.singleShot;
+  return `
+    <div class="shot-form">
+
+      <div class="form-section">
+        <div class="form-section-label">장면 설명</div>
+        <textarea class="form-textarea" id="sf-description"
+          placeholder="장면을 자유롭게 묘사하세요 (한국어 가능). 인물의 행동, 감정, 상황..."
+          rows="4">${esc(s.description)}</textarea>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-label">참조 시트</div>
+        <div class="ref-tags-wrap" id="ref-tags-wrap">
+          <div class="ref-add-wrap">
+            <button class="ref-add-btn" onclick="toggleRefDropdown(event)">＋ 시트 선택</button>
+            <div class="ref-dropdown" id="ref-dropdown"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-grid-2">
+        <div class="form-field">
+          <label class="form-field-label">샷 사이즈</label>
+          <select class="form-select" id="sf-shotSize">
+            ${SHOT_SIZE_OPTS.map(([v,l]) => `<option value="${v}">${l}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-field">
+          <label class="form-field-label">앵글</label>
+          <select class="form-select" id="sf-angle">
+            ${ANGLE_OPTS.map(([v,l]) => `<option value="${v}">${l}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-grid-2">
+        <div class="form-field">
+          <label class="form-field-label">카메라 무브</label>
+          <select class="form-select" id="sf-cameraMove">
+            <option value="">없음 (AI 판단)</option>
+            <option value="static">고정 (Static)</option>
+            <option value="dolly-in">달리 인</option>
+            <option value="dolly-out">달리 아웃</option>
+            <option value="pan">패닝</option>
+            <option value="tilt-up">틸트 업</option>
+            <option value="tilt-down">틸트 다운</option>
+            <option value="tracking">트래킹</option>
+            <option value="orbit">오빗</option>
+            <option value="crane-up">크레인 업</option>
+            <option value="handheld">핸드헬드</option>
+            <option value="drone">드론·항공</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label class="form-field-label">분위기·스타일</label>
+          <select class="form-select" id="sf-mood">
+            <option value="">없음 (AI 판단)</option>
+            <option value="cinematic">시네마틱</option>
+            <option value="documentary">다큐멘터리</option>
+            <option value="dreamy">몽환적</option>
+            <option value="dark-rough">어둡고 거친</option>
+            <option value="bright-clean">밝고 깨끗한</option>
+            <option value="noir">느와르</option>
+            <option value="warm-nostalgic">따뜻하고 향수적</option>
+            <option value="cold-tense">차갑고 긴장감 있는</option>
+            <option value="grand-dramatic">웅장하고 드라마틱</option>
+            <option value="natural-realistic">자연스럽고 현실적</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-grid-2">
+        <div class="form-field">
+          <label class="form-field-label">조명·시간대</label>
+          <select class="form-select" id="sf-lighting">
+            <option value="">없음 (AI 판단)</option>
+            <option value="golden-hour">골든 아워</option>
+            <option value="blue-hour">블루 아워</option>
+            <option value="night">심야·야간</option>
+            <option value="clear-day">맑은 낮</option>
+            <option value="overcast">흐린 날</option>
+            <option value="indoor-warm">실내 따뜻한 조명</option>
+            <option value="neon-city">네온·도시 야경</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label class="form-field-label">화면비</label>
+          <select class="form-select" id="sf-ratio">
+            <option value="">AI 판단</option>
+            <option value="16:9">16:9</option>
+            <option value="2.39:1">2.39:1</option>
+            <option value="9:16">9:16</option>
+            <option value="1:1">1:1</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-grid-2">
+        <div class="form-field">
+          <label class="form-field-label">총 초수 (비우면 AI 판단)</label>
+          <input class="form-input" id="sf-duration" type="number" min="1" max="120"
+            placeholder="예) 5" value="${esc(s.duration)}" />
+        </div>
+        <div class="form-field">
+          <label class="form-field-label">대사 (선택)</label>
+          <input class="form-input" id="sf-dialogue"
+            placeholder="대사가 있으면 입력" value="${esc(s.dialogue)}" />
+        </div>
+      </div>
+
+    </div>`;
+}
+
+function bindSingleShotForm() {
+  const s = state.singleShot;
+
+  // Render ref tags first
+  updateRefTagsDisplay();
+
+  // Bind selects (must set value after DOM insertion)
+  [['sf-shotSize','shotSize'],['sf-angle','angle'],['sf-cameraMove','cameraMove'],['sf-mood','mood'],['sf-lighting','lighting'],['sf-ratio','ratio']].forEach(([id, key]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = s[key] || '';
+    el.addEventListener('change', () => { s[key] = el.value; saveToStorage(); });
+  });
+
+  // Bind text/textarea/number inputs
+  [['sf-description','description'],['sf-duration','duration'],['sf-dialogue','dialogue']].forEach(([id, key]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', () => { s[key] = el.value; saveToStorage(); });
+  });
+}
+
+function updateRefTagsDisplay() {
+  const wrap = document.getElementById('ref-tags-wrap');
+  if (!wrap) return;
+  const addWrap = wrap.querySelector('.ref-add-wrap');
+  wrap.innerHTML = '';
+
+  state.singleShot.refs.forEach(label => {
+    const tag = document.createElement('span');
+    tag.className = 'ref-tag';
+    const del = document.createElement('button');
+    del.className = 'ref-tag-del';
+    del.textContent = '✕';
+    del.title = '제거';
+    del.addEventListener('click', () => removeRef(label));
+    tag.appendChild(document.createTextNode(label));
+    tag.appendChild(del);
+    wrap.appendChild(tag);
+  });
+
+  wrap.appendChild(addWrap);
+}
+
+function toggleRefDropdown(event) {
+  event.stopPropagation();
+  const dropdown = document.getElementById('ref-dropdown');
+  if (!dropdown) return;
+
+  if (dropdown.classList.contains('open')) {
+    dropdown.classList.remove('open');
+    return;
+  }
+
+  const unselectedSheets = Object.keys(state.sheets)
+    .filter(l => !state.singleShot.refs.includes(l));
+  const unselectedImgs = (state.refImages || [])
+    .filter(ri => !state.singleShot.refs.includes('ri::' + ri.id));
+
+  if (!unselectedSheets.length && !unselectedImgs.length) {
+    dropdown.innerHTML = `<div class="ref-dropdown-empty">선택 가능한 항목이 없습니다<br><small style="color:var(--text-faint)">왼쪽 패널에서 시트 또는 이미지를 추가하세요</small></div>`;
+  } else {
+    const sheetItems = unselectedSheets.map(label => {
+      const sheet = state.sheets[label];
+      const imgEl = sheet.images.length
+        ? `<img src="${sheet.images[0].dataUrl}" />`
+        : `<span class="di-icon">${CAT_ICONS[sheet.category] || '📋'}</span>`;
+      return `<div class="ref-dropdown-item" data-label="${esc(label)}">
+        ${imgEl}<span class="di-cat">${esc(sheet.category)}</span><span>${esc(sheet.name)}</span>
+      </div>`;
+    }).join('');
+    const imgItems = unselectedImgs.map(ri => `<div class="ref-dropdown-item" data-label="ri::${esc(ri.id)}">
+      <img src="${ri.dataUrl}" />
+      <span class="di-cat">이미지</span><span>${esc(ri.name)}</span>
+    </div>`).join('');
+
+    dropdown.innerHTML = sheetItems + (imgItems ? `<div style="border-top:1px solid var(--border-dim);margin:3px 0"></div>${imgItems}` : '');
+    dropdown.querySelectorAll('.ref-dropdown-item').forEach(item => {
+      item.addEventListener('click', e => { e.stopPropagation(); addRef(item.dataset.label); });
+    });
+  }
+
+  dropdown.classList.add('open');
+}
+
+function addRef(label) {
+  if (!state.singleShot.refs.includes(label)) {
+    state.singleShot.refs.push(label);
+    saveToStorage();
+    updateRefTagsDisplay();
+  }
+  const dropdown = document.getElementById('ref-dropdown');
+  if (dropdown) dropdown.classList.remove('open');
+}
+
+function removeRef(label) {
+  state.singleShot.refs = state.singleShot.refs.filter(r => r !== label);
+  saveToStorage();
+  updateRefTagsDisplay();
+}
+
+// ═══════════════════════════════════════════
+// MULTI SHOT TABLE
+// ═══════════════════════════════════════════
+function renderMultiShotTable() {
+  const body = document.getElementById('center-panel-body');
+  if (!state.shots.length) addShot(false);
+
+  body.innerHTML = `
+    <div class="multishot-wrap">
+      <div class="multishot-topbar">
+        <span class="ms-topbar-label">총 초수</span>
+        <input class="ms-total-input" type="number" id="ms-total-dur"
+          placeholder="--" min="1" max="600"
+          value="${esc(state.multiShot.totalDuration)}" />
+        <span class="ms-topbar-unit">초 (비우면 AI가 컷별 배분)</span>
+      </div>
+      <div class="shot-table-scroll">
+        <table class="shot-table">
+          <thead><tr>
+            <th class="col-drag"></th>
+            <th class="col-num">#</th>
+            <th class="col-refs">참조 시트<span class="col-rz"></span></th>
+            <th class="col-size">샷 사이즈<span class="col-rz"></span></th>
+            <th class="col-angle">앵글<span class="col-rz"></span></th>
+            <th class="col-cam">카메라 무브<span class="col-rz"></span></th>
+            <th class="col-dur">초수<span class="col-rz"></span></th>
+            <th class="col-dial">대사<span class="col-rz"></span></th>
+            <th class="col-memo">메모<span class="col-rz"></span></th>
+            <th class="col-del"></th>
+          </tr></thead>
+          <tbody id="shot-tbody"></tbody>
+        </table>
+      </div>
+      <button class="btn-add-shot" onclick="addShot()">＋ 컷 추가</button>
+    </div>`;
+
+  document.getElementById('ms-total-dur').addEventListener('input', function() {
+    state.multiShot.totalDuration = this.value;
+    saveToStorage();
+  });
+
+  renderShotRows();
+  restoreColWidths();
+}
+
+function renderShotRows() {
+  const tbody = document.getElementById('shot-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  state.shots.forEach((shot, idx) => tbody.appendChild(buildShotRow(shot, idx)));
+  setupDragDrop();
+}
+
+function buildShotRow(shot, idx) {
+  const tr = document.createElement('tr');
+  tr.dataset.id = shot.id;
+  tr.draggable = true;
+
+  // drag
+  const tdD = el('td', 'col-drag');
+  tdD.innerHTML = '<div class="drag-handle">⠿⠿</div>';
+
+  // cut number
+  const tdN = el('td', 'col-num');
+  tdN.innerHTML = `<div class="cell-num-label">${idx+1}</div>`;
+
+  // refs
+  const tdR = el('td', 'col-refs');
+  tdR.appendChild(buildRefCellEl(shot));
+
+  // shot size
+  const tdSz = el('td', 'col-size');
+  tdSz.innerHTML = `<select class="cell-select"
+    onchange="updateShot('${shot.id}','shotSize',this.value)">
+    ${SHOT_SIZE_OPTS.map(([v,l]) => `<option value="${v}" ${shot.shotSize===v?'selected':''}>${l}</option>`).join('')}
+  </select>`;
+
+  // angle
+  const tdA = el('td', 'col-angle');
+  tdA.innerHTML = `<select class="cell-select"
+    onchange="updateShot('${shot.id}','angle',this.value)">
+    ${ANGLE_OPTS.map(([v,l]) => `<option value="${v}" ${shot.angle===v?'selected':''}>${l}</option>`).join('')}
+  </select>`;
+
+  // camera move select
+  const CAM_OPTS = [['','AI 판단'],['static','고정'],['dolly-in','달리 인'],['dolly-out','달리 아웃'],
+    ['pan','패닝'],['tilt-up','틸트 업'],['tilt-down','틸트 다운'],
+    ['tracking','트래킹'],['orbit','오빗'],['crane-up','크레인 업'],
+    ['handheld','핸드헬드'],['drone','드론·항공']];
+  const tdC = el('td', 'col-cam');
+  tdC.innerHTML = `<select class="cell-select"
+    onchange="updateShot('${shot.id}','cameraMove',this.value)">
+    ${CAM_OPTS.map(([v,l]) => `<option value="${v}" ${shot.cameraMove===v?'selected':''}>${l}</option>`).join('')}
+  </select>`;
+
+  // duration
+  const tdDur = el('td', 'col-dur');
+  tdDur.innerHTML = `<input class="cell-input" type="number" min="1" max="60" placeholder="--"
+    value="${esc(shot.duration || '')}"
+    oninput="updateShot('${shot.id}','duration',this.value)" />`;
+
+  // dialogue
+  const tdDl = el('td', 'col-dial');
+  tdDl.innerHTML = `<input class="cell-input" placeholder="대사..."
+    value="${esc(shot.dialogue || '')}"
+    oninput="updateShot('${shot.id}','dialogue',this.value)" />`;
+
+  // memo
+  const tdM = el('td', 'col-memo');
+  tdM.innerHTML = `<input class="cell-input" placeholder="메모..."
+    value="${esc(shot.memo || '')}"
+    oninput="updateShot('${shot.id}','memo',this.value)" />`;
+
+  // delete
+  const tdX = el('td', 'col-del');
+  tdX.innerHTML = `<button class="btn-del-shot" onclick="deleteShot('${shot.id}')" title="삭제">✕</button>`;
+
+  [tdD,tdN,tdR,tdSz,tdA,tdC,tdDur,tdDl,tdM,tdX].forEach(t => tr.appendChild(t));
+  return tr;
+}
+
+function el(tag, cls) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  return e;
+}
+
+function buildRefCellEl(shot) {
+  const cell = document.createElement('div');
+  cell.className = 'shot-ref-cell';
+  cell.onclick = e => toggleShotRefDd(e, shot.id);
+
+  (shot.refs || []).forEach(label => {
+    const chip = document.createElement('span');
+    chip.className = 'shot-ref-chip';
+    if (label.startsWith('ri::')) {
+      const ri = (state.refImages || []).find(r => r.id === label.slice(4));
+      chip.textContent = ri ? ri.name : label.slice(4);
+    } else {
+      chip.textContent = (label.split('_').slice(1).join('_')) || label;
+    }
+    chip.title = label + ' — 클릭해 제거';
+    chip.onclick = e => { e.stopPropagation(); removeShotRef(shot.id, label); };
+    cell.appendChild(chip);
+  });
+
+  if (!shot.refs.length) {
+    const hint = document.createElement('span');
+    hint.className = 'shot-ref-hint';
+    hint.textContent = '시트 선택...';
+    cell.appendChild(hint);
+  }
+
+  const dd = document.createElement('div');
+  dd.className = 'shot-ref-dropdown';
+  dd.id = `shot-dd-${shot.id}`;
+  cell.appendChild(dd);
+  return cell;
+}
+
+function toggleShotRefDd(e, shotId) {
+  e.stopPropagation();
+  document.querySelectorAll('.shot-ref-dropdown.open').forEach(d => {
+    if (d.id !== `shot-dd-${shotId}`) d.classList.remove('open');
+  });
+  const dd = document.getElementById(`shot-dd-${shotId}`);
+  if (!dd) return;
+  if (dd.classList.contains('open')) { dd.classList.remove('open'); return; }
+
+  const shot = state.shots.find(s => s.id === shotId);
+  const sel = shot?.refs || [];
+  const allLabels = Object.keys(state.sheets);
+  const allImgs = state.refImages || [];
+
+  if (!allLabels.length && !allImgs.length) {
+    dd.innerHTML = `<div style="padding:12px;font-size:12px;color:var(--text-faint);text-align:center">
+      왼쪽 패널에서 시트 또는 이미지를 추가하세요</div>`;
+  } else {
+    const sheetItems = allLabels.map(label => {
+      const s = state.sheets[label];
+      const isChk = sel.includes(label);
+      return `<div class="shot-dd-item" onclick="event.stopPropagation();toggleShotRef('${esc(shotId)}','${esc(label)}')">
+        <span class="shot-dd-check">${isChk ? '✓' : ''}</span>
+        <span class="shot-dd-cat">${esc(s.category)}</span>
+        <span>${esc(label)}</span>
+      </div>`;
+    }).join('');
+    const imgItems = allImgs.map(ri => {
+      const key = 'ri::' + ri.id;
+      const isChk = sel.includes(key);
+      return `<div class="shot-dd-item" onclick="event.stopPropagation();toggleShotRef('${esc(shotId)}','${esc(key)}')">
+        <span class="shot-dd-check">${isChk ? '✓' : ''}</span>
+        <span class="shot-dd-cat">이미지</span>
+        <span>${esc(ri.name)}</span>
+      </div>`;
+    }).join('');
+    dd.innerHTML = sheetItems + (imgItems ? `<div style="border-top:1px solid var(--border-dim);margin:3px 0"></div>${imgItems}` : '');
+  }
+  dd.classList.add('open');
+}
+
+function toggleShotRef(shotId, label) {
+  const shot = state.shots.find(s => s.id === shotId);
+  if (!shot) return;
+  if (shot.refs.includes(label)) shot.refs = shot.refs.filter(r => r !== label);
+  else shot.refs.push(label);
+  saveToStorage();
+  refreshRefCell(shot);
+  // Re-open dropdown
+  setTimeout(() => {
+    const dd = document.getElementById(`shot-dd-${shotId}`);
+    if (dd) { dd.classList.remove('open'); toggleShotRefDd({ stopPropagation:()=>{} }, shotId); }
+  }, 0);
+}
+
+function removeShotRef(shotId, label) {
+  const shot = state.shots.find(s => s.id === shotId);
+  if (!shot) return;
+  shot.refs = shot.refs.filter(r => r !== label);
+  saveToStorage();
+  refreshRefCell(shot);
+}
+
+function refreshRefCell(shot) {
+  const tr = document.querySelector(`tr[data-id="${shot.id}"]`);
+  if (!tr) return;
+  const td = tr.querySelector('.col-refs');
+  if (!td) return;
+  td.innerHTML = '';
+  td.appendChild(buildRefCellEl(shot));
+}
+
+function addShot(render = true) {
+  state.shots.push({
+    id: 'shot_' + Date.now() + '_' + Math.random().toString(36).slice(2,5),
+    refs:[], angle:'', shotSize:'', cameraMove:'', duration:'', dialogue:'', memo:'',
+  });
+  saveToStorage();
+  if (render) renderShotRows();
+}
+
+function deleteShot(shotId) {
+  if (state.shots.length <= 1) {
+    const s = state.shots[0];
+    Object.assign(s, { refs:[], angle:'', shotSize:'', cameraMove:'', duration:'', dialogue:'', memo:'' });
+  } else {
+    state.shots = state.shots.filter(s => s.id !== shotId);
+  }
+  saveToStorage();
+  renderShotRows();
+}
+
+function updateShot(shotId, field, value) {
+  const s = state.shots.find(s => s.id === shotId);
+  if (s) { s[field] = value; saveToStorage(); }
+}
+
+function setupDragDrop() {
+  const tbody = document.getElementById('shot-tbody');
+  if (!tbody) return;
+  let srcId = null;
+
+  tbody.querySelectorAll('tr').forEach(tr => {
+    tr.addEventListener('dragstart', e => {
+      srcId = tr.dataset.id; tr.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    tr.addEventListener('dragend', () => {
+      tr.classList.remove('dragging');
+      tbody.querySelectorAll('tr').forEach(r => r.classList.remove('drag-over'));
+    });
+    tr.addEventListener('dragover', e => {
+      e.preventDefault();
+      tbody.querySelectorAll('tr').forEach(r => r.classList.remove('drag-over'));
+      if (tr.dataset.id !== srcId) tr.classList.add('drag-over');
+    });
+    tr.addEventListener('drop', e => {
+      e.preventDefault();
+      if (!srcId || tr.dataset.id === srcId) return;
+      const si = state.shots.findIndex(s => s.id === srcId);
+      const di = state.shots.findIndex(s => s.id === tr.dataset.id);
+      if (si < 0 || di < 0) return;
+      const [moved] = state.shots.splice(si, 1);
+      state.shots.splice(di, 0, moved);
+      saveToStorage(); renderShotRows();
+    });
+  });
+}
+
+// ═══════════════════════════════════════════
+// LLM ROUTER
+// ═══════════════════════════════════════════
+function getActiveApiKey() {
+  return localStorage.getItem(`revon_apikey_${state.apiProvider}`) || '';
+}
+
+async function callLLM(messages, systemPrompt, maxTokens = 1200) {
+  const key = getActiveApiKey();
+  if (!key) throw new Error(`${state.apiProvider.toUpperCase()} API 키가 등록되지 않았습니다.\n오른쪽 패널 하단에서 키를 입력하고 저장하세요.`);
+
+  const model = state.apiModel;
+  if (state.apiProvider === 'claude') {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
+      body: JSON.stringify({ model, max_tokens: maxTokens, system: systemPrompt, messages }),
+    });
+    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error?.message || `HTTP ${res.status}`); }
+    const d = await res.json();
+    return d.content?.[0]?.text || '';
+  }
+  if (state.apiProvider === 'gpt') {
+    const msgs = systemPrompt ? [{ role:'system', content: systemPrompt }, ...messages] : messages;
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json','Authorization':`Bearer ${key}` },
+      body: JSON.stringify({ model, max_tokens: maxTokens, messages: msgs }),
+    });
+    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error?.message || `HTTP ${res.status}`); }
+    const d = await res.json();
+    return d.choices?.[0]?.message?.content || '';
+  }
+  if (state.apiProvider === 'gemini') {
+    const parts = [];
+    if (systemPrompt) parts.push({ text: systemPrompt + '\n\n---\n' });
+    messages.forEach(m => {
+      if (Array.isArray(m.content)) {
+        m.content.forEach(c => {
+          if (c.type === 'text') parts.push({ text: c.text });
+          else if (c.type === 'image') parts.push({ inline_data: { mime_type: c.source.media_type, data: c.source.data } });
+        });
+      } else {
+        parts.push({ text: m.content });
+      }
+    });
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify({ contents: [{ parts }], generationConfig: { maxOutputTokens: maxTokens } }),
+    });
+    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error?.message || `HTTP ${res.status}`); }
+    const d = await res.json();
+    return d.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  }
+  throw new Error('지원되지 않는 프로바이더');
+}
+
+// ═══════════════════════════════════════════
+// GENERATE PROMPT
+// ═══════════════════════════════════════════
+async function generatePrompt() {
+  if (!getActiveApiKey()) {
+    showRightError(`${state.apiProvider.toUpperCase()} API 키를 먼저 입력하고 저장하세요.`);
+    return;
+  }
+
+  if (state.shotMode === 'multi') { await generateMultiPrompt(); return; }
+
+  const s = state.singleShot;
+  if (!s.description.trim() && !s.refs.length) {
+    showRightError('가운데 패널에서 장면 설명 또는 참조 시트를 먼저 입력해주세요.');
+    return;
+  }
+
+  showRightLoading();
+
+  try {
+    const content = buildUserContent();
+    const raw = await callLLM([{ role:'user', content }], buildSystemPrompt(), 1400);
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('응답을 파싱할 수 없습니다:\n' + raw.slice(0, 300));
+    const parsed = JSON.parse(jsonMatch[0]);
+
+    state.generatedParts = parsed.parts || {};
+    state.generatedKorean = parsed.korean || {};
+    state.generatedFinal = parsed.final || '';
+    state.generatedFinalKorean = parsed.final_korean || '';
+    state.promptStale = false;
+    document.getElementById('right-platform-badge')?.classList.remove('stale');
+    saveToStorage();
+    renderPromptOutput();
+
+  } catch (e) {
+    showRightError(e.message || '알 수 없는 오류');
+  }
+}
+
+// ── Build system prompt per platform ──────────────
+function buildSystemPrompt() {
+  const p = state.platform || 'kling';
+  const rules = {
+    kling: `You are an expert AI video prompt engineer for Kling 3.0.
+Syntax: Subject + Subject Movement + Scene + Camera Language + Lighting & Atmosphere.
+References: @image1, @image2 ... in upload order (1-indexed per sheet order).
+Camera: explicit terms only — "slow dolly-in", "tracking shot from behind", "static low angle".
+NEVER use vague terms like "cinematic movement" or "dynamic camera".
+Image-to-video: describe ONLY movement and camera, not what is already visible in the image.
+Append negative prompt at end of final: "|| cartoonish, 3D render, floating limbs, sliding feet, text morphing"`,
+
+    runway: `You are an expert AI video prompt engineer for Runway Gen-4.
+Rule: images define the scene; the prompt defines movement ONLY.
+NEVER use negative prompts (they cause opposite results). Use ONLY positive descriptions.
+Camera: "The camera [movement] as the subject [action]."
+Sequential: "X occurs, then Y occurs. Finally, Z occurs."
+Keep final prompt SHORT and precise — fewer words = better results.`,
+
+    seedance: `You are an expert AI video prompt engineer for Seedance 2.0 (ByteDance).
+References: use @AssetName syntax matching the sheet label exactly (e.g. @인물_주인공).
+Time markers: "at the 5-second mark", "starting from the beginning".
+Supports multi-shot consistency in one prompt.
+Precise spatial: "in the background behind", complex multi-subject scenes supported.`,
+
+    hailuo: `You are an expert AI video prompt engineer. Apply general best practices for Hailuo (MiniMax). Platform-specific guidelines are not yet confirmed — use cinematic descriptive style.`,
+
+    sora: `You are an expert AI video prompt engineer for Sora (OpenAI).
+Prefer natural language with detailed, specific descriptions.
+Describe physical laws, material textures, and spatial relationships explicitly.`,
+
+    wan: `You are an expert AI video prompt engineer. Apply general best practices for Wan 2.1 (Alibaba). Platform-specific guidelines are not yet confirmed — use descriptive cinematic style.`,
+  };
+
+  return `${rules[p] || rules.kling}
+
+CRITICAL RULES:
+1. All prompt text (parts, final) MUST be in English (translate any Korean input).
+2. Reference sheets: mention them as [SheetLabel] where relevant, e.g. "character reference [인물_주인공]".
+3. Output ONLY a single valid JSON object — no markdown, no code fences, no explanation.
+4. SAFETY: Keep all content suitable for AI video platforms. Describe intense scenes cinematically without explicit violence, sexual content, or policy-violating material.
+5. Required JSON structure:
+{
+  "parts": {
+    "인물": "<subject/character — omit if no character info>",
+    "장소": "<location/setting — omit if no location info>",
+    "카메라": "<camera movement and framing>",
+    "분위기": "<mood, style, lighting>",
+    "대사": "<dialogue — omit if none>",
+    "초수": "<e.g. 5s>"
+  },
+  "korean": {
+    "인물": "<한글로 인물 설명>",
+    "장소": "<한글로 장소 설명>",
+    "카메라": "<한글로 카메라 설명>",
+    "분위기": "<한글로 분위기 설명>",
+    "초수": "<e.g. 5초>"
+  },
+  "final": "<complete platform-ready English prompt, single paragraph>",
+  "final_korean": "<한글로 전체 장면 요약 (1~2문장)>"
+}
+Omit part keys that have no relevant content. Always include 카메라, 분위기, 초수.`;
+}
+
+// ── Build user message content (text + images) ────
+function buildUserContent() {
+  const s = state.singleShot;
+  const content = [];
+  let imgCounter = 1;
+
+  s.refs.forEach(label => {
+    if (label.startsWith('ri::')) {
+      const ri = (state.refImages || []).find(r => r.id === label.slice(4));
+      if (!ri) return;
+      content.push({ type:'text', text:`=== Reference Image: [${ri.name}] ===` });
+      content.push({ type:'image', source:{ type:'base64', media_type:ri.mimeType||'image/jpeg', data:ri.dataUrl.split(',')[1] }});
+      imgCounter++;
+      return;
+    }
+    const sheet = state.sheets[label];
+    if (!sheet) return;
+
+    content.push({ type: 'text', text: `=== Reference Sheet: [${label}] (Category: ${sheet.category}) ===` });
+
+    const fieldLines = Object.entries(sheet.fields)
+      .filter(([, v]) => v && (Array.isArray(v) ? v.length : String(v).trim()))
+      .map(([k, v]) => `  ${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
+      .join('\n');
+    if (fieldLines) content.push({ type: 'text', text: fieldLines });
+
+    sheet.images.forEach(img => {
+      content.push({ type: 'text', text: `Image ${imgCounter} for [${label}]:` });
+      content.push({
+        type: 'image',
+        source: { type: 'base64', media_type: img.mimeType || 'image/jpeg', data: img.dataUrl.split(',')[1] },
+      });
+      imgCounter++;
+    });
+  });
+
+  const CAM_LABEL  = { 'static':'Static (fixed)','dolly-in':'Dolly in','dolly-out':'Dolly out','pan':'Panning','tilt-up':'Tilt up','tilt-down':'Tilt down','tracking':'Tracking shot','orbit':'Orbit','crane-up':'Crane up','handheld':'Handheld','drone':'Drone/aerial' };
+  const MOOD_LABEL = { 'cinematic':'Cinematic','documentary':'Documentary','dreamy':'Dreamy/ethereal','dark-rough':'Dark and gritty','bright-clean':'Bright and clean','noir':'Noir','warm-nostalgic':'Warm and nostalgic','cold-tense':'Cold and tense','grand-dramatic':'Grand and dramatic','natural-realistic':'Natural and realistic' };
+  const LIGHT_LABEL= { 'golden-hour':'Golden hour','blue-hour':'Blue hour','night':'Late night','clear-day':'Clear daytime','overcast':'Overcast/cloudy','indoor-warm':'Warm indoor lighting','neon-city':'Neon city nightscape' };
+
+  const ANGLE_LABEL = {'eye-level':'Eye level','low':'Low angle','high':'High angle','bird':'Bird\'s eye / overhead','worm':'Worm\'s eye','dutch':'Dutch angle','ots':'Over the shoulder','pov':'POV'};
+  const SIZE_LABEL  = {'ews':'Extreme wide shot','ws':'Wide shot','fs':'Full shot','mws':'Medium wide shot','ms':'Medium shot','mcu':'Medium close-up','cu':'Close-up','ecu':'Extreme close-up'};
+
+  const lines = [
+    `Platform: ${PLATFORM_LABELS[state.platform] || state.platform}`,
+    s.description  ? `Scene description: ${s.description}` : '',
+    s.shotSize     ? `Shot size: ${SIZE_LABEL[s.shotSize] || s.shotSize}` : '',
+    s.angle        ? `Camera angle: ${ANGLE_LABEL[s.angle] || s.angle}` : '',
+    s.cameraMove   ? `Camera move: ${CAM_LABEL[s.cameraMove] || s.cameraMove}` : 'Camera move: AI determines',
+    s.mood         ? `Mood/Style: ${MOOD_LABEL[s.mood] || s.mood}` : '',
+    s.lighting     ? `Lighting: ${LIGHT_LABEL[s.lighting] || s.lighting}` : '',
+    s.ratio        ? `Aspect ratio: ${s.ratio}` : '',
+    s.duration     ? `Duration: ${s.duration} seconds` : 'Duration: AI determines',
+    s.dialogue     ? `Dialogue: "${s.dialogue}"` : '',
+    s.refs.length  ? `Referenced sheets (in order): ${s.refs.join(', ')}` : '',
+  ].filter(Boolean).join('\n');
+
+  content.push({ type: 'text', text: `\n=== Shot Settings ===\n${lines}\n\nGenerate the prompt now. Return ONLY valid JSON.` });
+  return content;
+}
+
+// ── Render prompt output in right panel ──────────
+function renderPromptOutput() {
+  if (state.shotMode === 'multi') { renderMultiShotOutput(); return; }
+  renderSingleShotOutput();
+}
+
+function renderMultiShotOutput() {
+  const body = document.getElementById('right-panel-body');
+  const shots = state.multiShot?.generatedShots || [];
+  const final  = state.multiShot?.generatedFinal || '';
+
+  if (!shots.length && !final) {
+    body.innerHTML = `
+      <div class="panel-placeholder">
+        <div class="ph-icon">✨</div>
+        <div class="ph-label">멀티샷 프롬프트가 여기에 생성됩니다</div>
+        <button class="btn-generate" onclick="generatePrompt()">프롬프트 생성</button>
+      </div>`;
+    return;
+  }
+
+  const cutsHTML = shots.map((shot, ci) => {
+    const parts = shot.parts || {};
+    const partsHTML = Object.entries(parts).map(([key, val]) => {
+      const koVal = (shot.korean || {})[key] || '';
+      const mk = `${ci}::${esc(key)}`;
+      return `<div class="prompt-part" data-key="${mk}">
+        <div class="part-header">
+          <span class="part-key">${esc(key)}</span>
+          <div style="flex:1">
+            <div class="part-val">${esc(val)}</div>
+            ${koVal ? `<div class="part-val-ko">${esc(koVal)}</div>` : ''}
+          </div>
+          <button class="part-revise-btn" onclick="toggleRevise('${mk}')">수정</button>
+        </div>
+        <div class="part-edit-area" id="edit-area-${mk}">
+          <textarea placeholder="수정 지시..." rows="2"></textarea>
+          <div class="part-edit-actions">
+            <button class="btn-cancel" onclick="cancelRevise('${mk}')">취소</button>
+            <button class="btn-confirm" onclick="submitRevise('${mk}')">수정 적용</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+
+    return `<div class="cut-block">
+      <div class="cut-separator">
+        <div class="cut-sep-line"></div>
+        <span class="cut-sep-label">── 컷 ${(shot.cutNumber||ci+1)} ──</span>
+        <div class="cut-sep-line"></div>
+      </div>
+      ${partsHTML}
+      <div class="cut-footer"></div>
+    </div>`;
+  }).join('');
+
+  // Attachments: unique refs across all shots
+  const usedRefs = [...new Set(state.shots.flatMap(s => s.refs||[]))];
+  const multiAttachItems = usedRefs.map(l => {
+    if (l.startsWith('ri::')) {
+      const ri = (state.refImages||[]).find(r=>r.id===l.slice(4));
+      if (!ri) return null;
+      return { label: ri.name, thumb: `<img class="attachment-thumb" src="${ri.dataUrl}" />`, cnt: '' };
+    }
+    const sheet = state.sheets[l];
+    if (!sheet?.images?.length) return null;
+    const thumb = `<img class="attachment-thumb" src="${sheet.images[0].dataUrl}" />`;
+    const cnt = sheet.images.length > 1 ? ` · ${sheet.images.length}장` : '';
+    return { label: l, thumb, cnt };
+  }).filter(Boolean);
+
+  const attachHTML = multiAttachItems.length
+    ? `<div class="attachment-note">${esc(getPlatformUploadNote())}</div>` +
+      multiAttachItems.map(({ label, thumb, cnt }, i) => `<div class="attachment-item">
+          <span class="attachment-num">${i+1}</span>${thumb}
+          <span class="attachment-label">${esc(label)}</span>
+          <span class="attachment-count">${cnt}</span>
+        </div>`).join('')
+    : '<div style="font-size:12px;color:var(--text-faint)">참조된 이미지 없음</div>';
+
+  const finalKo = state.multiShot?.generatedFinalKorean || '';
+  body.innerHTML = `
+    <div class="prompt-output" id="prompt-output-root">
+      <div class="output-section-label" style="padding-top:0;border-top:none">파트별 구조</div>
+      ${cutsHTML}
+      <div class="output-section-label">플랫폼 전달용 프롬프트</div>
+      <div class="prompt-final-wrap">
+        <div class="prompt-final-text">${esc(final)}</div>
+        ${finalKo ? `<div class="final-ko">${esc(finalKo)}</div>` : ''}
+        <button class="copy-btn" onclick="copyFinalPrompt(this)">복사</button>
+      </div>
+      <div class="output-section-label">첨부파일 순서</div>
+      ${attachHTML}
+      <div class="regen-row"><button class="btn-regen" onclick="generatePrompt()">↺ 다시 생성</button></div>
+    </div>`;
+  injectStaleBanner(document.getElementById('prompt-output-root'));
+}
+
+function renderSingleShotOutput() {
+  const body = document.getElementById('right-panel-body');
+  const parts = state.generatedParts;
+  const final  = state.generatedFinal;
+
+  if (!Object.keys(parts).length && !final) {
+    body.innerHTML = `
+      <div class="panel-placeholder">
+        <div class="ph-icon">✨</div>
+        <div class="ph-label">프롬프트가 여기에 생성됩니다</div>
+        <button class="btn-generate" onclick="generatePrompt()">프롬프트 생성</button>
+      </div>`;
+    return;
+  }
+
+  const korean = state.generatedKorean || {};
+  const partsHTML = Object.entries(parts).map(([key, val]) => `
+    <div class="prompt-part" data-key="${esc(key)}">
+      <div class="part-header">
+        <span class="part-key">${esc(key)}</span>
+        <div style="flex:1">
+          <div class="part-val">${esc(val)}</div>
+          ${korean[key] ? `<div class="part-val-ko">${esc(korean[key])}</div>` : ''}
+        </div>
+        <button class="part-revise-btn" onclick="toggleRevise('${esc(key)}')">수정</button>
+      </div>
+      <div class="part-edit-area" id="edit-area-${esc(key)}">
+        <textarea placeholder="수정 지시 (예: 더 어둡고 위협적인 느낌으로)" rows="2"></textarea>
+        <div class="part-edit-actions">
+          <button class="btn-cancel" onclick="cancelRevise('${esc(key)}')">취소</button>
+          <button class="btn-confirm" onclick="submitRevise('${esc(key)}')">수정 적용</button>
+        </div>
+      </div>
+    </div>`).join('');
+
+  // Attachments: refs with images, in order
+  const attachItems = state.singleShot.refs.map(l => {
+    if (l.startsWith('ri::')) {
+      const ri = (state.refImages||[]).find(r=>r.id===l.slice(4));
+      if (!ri) return null;
+      return { label: ri.name, thumb: `<img class="attachment-thumb" src="${ri.dataUrl}" />`, cnt: '' };
+    }
+    const sheet = state.sheets[l];
+    if (!sheet?.images?.length) return null;
+    const thumb = `<img class="attachment-thumb" src="${sheet.images[0].dataUrl}" />`;
+    const cnt = sheet.images.length > 1 ? ` · ${sheet.images.length}장` : '';
+    return { label: l, thumb, cnt };
+  }).filter(Boolean);
+
+  const attachHTML = attachItems.length
+    ? `<div class="attachment-note">${esc(getPlatformUploadNote())}</div>` +
+      attachItems.map(({ label, thumb, cnt }, i) => `<div class="attachment-item">
+          <span class="attachment-num">${i+1}</span>${thumb}
+          <span class="attachment-label">${esc(label)}</span>
+          <span class="attachment-count">${cnt}</span>
+        </div>`).join('')
+    : '<div style="font-size:12px;color:var(--text-faint)">참조된 이미지 없음</div>';
+
+  body.innerHTML = `
+    <div class="prompt-output" id="prompt-output-root">
+      <div class="output-section-label" style="padding-top:0;border-top:none">파트별 구조</div>
+      <div id="prompt-parts-list">${partsHTML}</div>
+
+      <div class="output-section-label">플랫폼 전달용 프롬프트</div>
+      <div class="prompt-final-wrap">
+        <div class="prompt-final-text">${esc(final)}</div>
+        ${state.generatedFinalKorean ? `<div class="final-ko">${esc(state.generatedFinalKorean)}</div>` : ''}
+        <button class="copy-btn" onclick="copyFinalPrompt(this)">복사</button>
+      </div>
+
+      <div class="output-section-label">첨부파일 순서</div>
+      ${attachHTML}
+
+      <div class="regen-row">
+        <button class="btn-regen" onclick="generatePrompt()">↺ 다시 생성</button>
+      </div>
+    </div>`;
+  injectStaleBanner(document.getElementById('prompt-output-root'));
+}
+
+// ── Part revise ───────────────────────────────────
+function toggleRevise(key) {
+  const area = document.getElementById(`edit-area-${key}`);
+  const btn  = document.querySelector(`.prompt-part[data-key="${key}"] .part-revise-btn`);
+  if (!area) return;
+  const open = area.classList.contains('visible');
+  area.classList.toggle('visible', !open);
+  btn?.classList.toggle('active', !open);
+  if (!open) area.querySelector('textarea')?.focus();
+}
+
+function cancelRevise(key) {
+  const area = document.getElementById(`edit-area-${key}`);
+  const btn  = document.querySelector(`.prompt-part[data-key="${key}"] .part-revise-btn`);
+  area?.classList.remove('visible');
+  if (area) area.querySelector('textarea').value = '';
+  btn?.classList.remove('active');
+}
+
+async function submitRevise(key) {
+  const area = document.getElementById(`edit-area-${key}`);
+  const instruction = area?.querySelector('textarea')?.value?.trim();
+  if (!instruction) return;
+
+  const confirmBtn = area.querySelector('.btn-confirm');
+  if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = '...'; }
+
+  // key format: "partKey" (single) or "cutIdx::partKey" (multi)
+  const isCut = key.includes('::');
+  const [cutPart, partKey] = isCut ? key.split('::') : [null, key];
+  const cutIdx = isCut ? parseInt(cutPart) : null;
+
+  const currentVal = isCut
+    ? (state.multiShot?.generatedShots?.[cutIdx]?.parts?.[partKey] || '')
+    : (state.generatedParts[partKey] || '');
+
+  try {
+    const revised = (await callLLM([{
+      role: 'user',
+      content: `Revise this AI video prompt part.\n\nPart key: [${partKey}]\nCurrent text: "${currentVal}"\nRevision instruction: ${instruction}\nPlatform: ${PLATFORM_LABELS[state.platform]||state.platform}\n\nReturn ONLY the revised English text for [${partKey}]. No explanation, no JSON, no quotes.`,
+    }], '', 400)).trim();
+    if (!revised) throw new Error('빈 응답');
+
+    if (isCut) {
+      if (state.multiShot.generatedShots[cutIdx])
+        state.multiShot.generatedShots[cutIdx].parts[partKey] = revised;
+    } else {
+      state.generatedParts[partKey] = revised;
+    }
+    saveToStorage();
+
+    const valEl = document.querySelector(`.prompt-part[data-key="${key}"] .part-val`);
+    if (valEl) valEl.textContent = revised;
+    cancelRevise(key);
+
+  } catch (e) {
+    if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = '수정 적용'; }
+    alert('수정 실패: ' + e.message);
+  }
+}
+
+// ── Copy & helpers ────────────────────────────────
+function copyFinalPrompt(btn) {
+  const text = state.shotMode === 'multi'
+    ? state.multiShot.generatedFinal
+    : state.generatedFinal;
+  const doCopy = () => {
+    btn.textContent = '복사됨!'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '복사'; btn.classList.remove('copied'); }, 1800);
+  };
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).then(doCopy).catch(() => fallbackCopy(text, doCopy));
+  } else {
+    fallbackCopy(text, doCopy);
+  }
+}
+function fallbackCopy(text, cb) {
+  const el = document.createElement('textarea');
+  el.value = text; el.style.position = 'fixed'; el.style.opacity = '0';
+  document.body.appendChild(el); el.select();
+  document.execCommand('copy'); document.body.removeChild(el);
+  cb();
+}
+
+function getPlatformUploadNote() {
+  const n = {
+    kling:    'Kling OmniRef: 아래 순서대로 이미지를 업로드하세요.',
+    runway:   'Runway Gen-4: 레퍼런스 이미지 (최대 3장)를 업로드하세요.',
+    seedance: 'Seedance: @AssetName으로 참조된 순서대로 업로드하세요.',
+    hailuo:   'Hailuo: 레퍼런스 이미지를 업로드하세요.',
+    sora:     'Sora: 이미지를 업로드하세요.',
+    wan:      'Wan 2.1: 레퍼런스 이미지를 업로드하세요.',
+  };
+  return n[state.platform] || '레퍼런스 이미지를 순서대로 업로드하세요.';
+}
+
+// ── Toast ─────────────────────────────────────────
+function toast(msg, type = 'info') {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+  const t = document.createElement('div');
+  t.className = `toast${type !== 'info' ? ' ' + type : ''}`;
+  t.textContent = msg;
+  container.appendChild(t);
+  requestAnimationFrame(() => requestAnimationFrame(() => t.classList.add('visible')));
+  setTimeout(() => {
+    t.classList.remove('visible');
+    setTimeout(() => t.remove(), 300);
+  }, 2400);
+}
+
+// ── Settings ──────────────────────────────────────
+function toggleSettings(e) {
+  e.stopPropagation();
+  const dd = document.getElementById('settings-dropdown');
+  if (!dd) return;
+  const open = dd.classList.contains('open');
+  dd.classList.toggle('open', !open);
+  if (!open) updateStorageInfo();
+}
+
+function updateStorageInfo() {
+  const item = document.getElementById('storage-info');
+  if (!item) return;
+  try {
+    const raw = localStorage.getItem('revon_prompd') || '';
+    const bytes = new Blob([raw]).size;
+    const kb = (bytes / 1024).toFixed(1);
+    const pct = ((bytes / (5 * 1024 * 1024)) * 100).toFixed(0);
+    item.textContent = `💾 저장 용량: ${kb}KB / 5MB (${pct}%)`;
+    item.style.color = bytes > 4 * 1024 * 1024 ? 'var(--red)' : '';
+  } catch { item.textContent = '💾 용량 확인 불가'; }
+}
+
+function resetAllData() {
+  if (!confirm('모든 시트, 샷, 프롬프트 데이터를 초기화할까요?\n이 작업은 되돌릴 수 없습니다.')) return;
+  localStorage.removeItem('revon_prompd');
+  location.reload();
+}
+
+// ── Stale banner in prompt output ─────────────────
+function injectStaleBanner(container) {
+  if (!state.promptStale) return;
+  const banner = document.createElement('div');
+  banner.className = 'stale-banner';
+  banner.innerHTML = `⚠ 플랫폼이 변경되었습니다. 프롬프트를 재생성하세요.
+    <button class="stale-regen-btn" onclick="generatePrompt()">재생성</button>`;
+  container.insertBefore(banner, container.firstChild);
+}
+
+function showRightError(msg) {
+  document.getElementById('right-panel-body').innerHTML = `
+    <div class="prompt-error">${esc(msg)}</div>
+    <div class="regen-row">
+      <button class="btn-regen" onclick="generatePrompt()">다시 시도</button>
+    </div>`;
+}
+
+function showRightLoading() {
+  const names = { claude:'Claude', gpt:'ChatGPT', gemini:'Gemini' };
+  const provName = names[state.apiProvider] || state.apiProvider.toUpperCase();
+  document.getElementById('right-panel-body').innerHTML = `
+    <div class="prompt-loading">
+      <div class="dot-loading"><span></span><span></span><span></span></div>
+      <div>${provName}가 프롬프트를 생성 중입니다...</div>
+    </div>`;
+}
+
+// ── Multi-shot generate ───────────────────────────
+async function generateMultiPrompt() {
+  if (!state.shots.length) { showRightError('컷을 먼저 추가하세요.'); return; }
+
+  showRightLoading();
+
+  try {
+    const content = buildMultiUserContent();
+    const raw = await callLLM([{ role:'user', content }], buildMultiSystemPrompt(), 1600);
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('응답 파싱 실패:\n' + raw.slice(0, 300));
+    const parsed = JSON.parse(jsonMatch[0]);
+
+    state.multiShot.generatedShots = parsed.shots || [];
+    state.multiShot.generatedFinal = parsed.final || '';
+    state.multiShot.generatedFinalKorean = parsed.final_korean || '';
+    state.promptStale = false;
+    document.getElementById('right-platform-badge')?.classList.remove('stale');
+    saveToStorage();
+    renderPromptOutput();
+
+  } catch (e) {
+    showRightError(e.message || '알 수 없는 오류');
+  }
+}
+
+function buildMultiSystemPrompt() {
+  const p = state.platform || 'kling';
+  const baseRules = buildSystemPrompt().split('\nCRITICAL RULES:')[0];
+  return `${baseRules}
+
+You are generating prompts for MULTIPLE shots/cuts in sequence.
+
+CRITICAL RULES:
+1. All prompt text (parts, final) MUST be in English (translate Korean input).
+2. Reference sheets: mention them as [SheetLabel] where relevant.
+3. Maintain character/scene consistency across cuts.
+4. SAFETY: Keep content suitable for AI video platforms. No explicit violence, sexual content, or policy-violating material.
+5. Output ONLY a single valid JSON object — no markdown, no code fences.
+6. JSON structure:
+{
+  "shots": [
+    {
+      "cutNumber": 1,
+      "parts": {
+        "인물": "<subject — omit if not relevant>",
+        "장소": "<location — omit if not relevant>",
+        "카메라": "<camera movement and framing>",
+        "분위기": "<mood, style, lighting>",
+        "대사": "<dialogue — omit if none>",
+        "초수": "<e.g. 3s>"
+      },
+      "korean": {
+        "인물": "<한글>",
+        "장소": "<한글>",
+        "카메라": "<한글>",
+        "분위기": "<한글>",
+        "초수": "<e.g. 3초>"
+      }
+    }
+  ],
+  "final": "<complete platform-ready English prompt with all shots>",
+  "final_korean": "<한글로 전체 장면 흐름 요약 (2~3문장)>"
+}
+Always include 카메라, 분위기, 초수 in each shot's parts.`;
+}
+
+function buildMultiUserContent() {
+  const content = [];
+  let imgCounter = 1;
+
+  // Collect unique refs across all shots
+  const allRefs = [...new Set(state.shots.flatMap(s => s.refs || []))];
+
+  allRefs.forEach(label => {
+    if (label.startsWith('ri::')) {
+      const ri = (state.refImages || []).find(r => r.id === label.slice(4));
+      if (!ri) return;
+      content.push({ type:'text', text:`=== Reference Image: [${ri.name}] ===` });
+      content.push({ type:'image', source:{ type:'base64', media_type:ri.mimeType||'image/jpeg', data:ri.dataUrl.split(',')[1] }});
+      imgCounter++;
+      return;
+    }
+    const sheet = state.sheets[label];
+    if (!sheet) return;
+    content.push({ type:'text', text:`=== Reference Sheet: [${label}] (${sheet.category}) ===` });
+    const fieldLines = Object.entries(sheet.fields)
+      .filter(([,v]) => v && (Array.isArray(v)?v.length:String(v).trim()))
+      .map(([k,v]) => `  ${k}: ${Array.isArray(v)?v.join(', '):v}`).join('\n');
+    if (fieldLines) content.push({ type:'text', text: fieldLines });
+    sheet.images.forEach(img => {
+      content.push({ type:'text', text:`Image ${imgCounter} for [${label}]:` });
+      content.push({ type:'image', source:{ type:'base64', media_type:img.mimeType||'image/jpeg', data:img.dataUrl.split(',')[1] }});
+      imgCounter++;
+    });
+  });
+
+  const CAM  = {'static':'Static','dolly-in':'Dolly in','dolly-out':'Dolly out','pan':'Panning','tilt-up':'Tilt up','tilt-down':'Tilt down','tracking':'Tracking','orbit':'Orbit','crane-up':'Crane up','handheld':'Handheld','drone':'Drone/aerial'};
+  const SZLB = {'ews':'Extreme wide','ws':'Wide','fs':'Full','mws':'Medium wide','ms':'Medium','mcu':'Medium CU','cu':'Close-up','ecu':'Extreme CU'};
+  const AGLB = {'eye-level':'Eye level','low':'Low angle','high':'High angle','bird':'Bird\'s eye','worm':'Worm\'s eye','dutch':'Dutch','ots':'OTS','pov':'POV'};
+
+  const shotsDesc = state.shots.map((s, i) => {
+    const lines = [
+      `  Refs: ${s.refs.length ? s.refs.join(', ') : 'none'}`,
+      s.shotSize   ? `  Shot size: ${SZLB[s.shotSize]||s.shotSize}` : '',
+      s.angle      ? `  Angle: ${AGLB[s.angle]||s.angle}` : '',
+      s.cameraMove ? `  Camera move: ${CAM[s.cameraMove]||s.cameraMove}` : '  Camera move: AI determines',
+      s.duration   ? `  Duration: ${s.duration}s (fixed)` : '  Duration: AI determines',
+      s.dialogue   ? `  Dialogue: "${s.dialogue}"` : '',
+      s.memo       ? `  Memo: ${s.memo}` : '',
+    ].filter(Boolean).join('\n');
+    return `Cut ${i+1}:\n${lines}`;
+  }).join('\n\n');
+
+  const total = state.multiShot?.totalDuration;
+  content.push({ type:'text', text:
+    `\n=== Multi-Shot Settings ===\nPlatform: ${PLATFORM_LABELS[state.platform]||state.platform}\n` +
+    (total ? `Total duration: ${total} seconds (distribute across cuts)\n` : '') +
+    `Number of cuts: ${state.shots.length}\n\n${shotsDesc}\n\nGenerate prompts for all cuts. Return ONLY valid JSON.`
+  });
+  return content;
+}
+
+// ═══════════════════════════════════════════
+// API KEY & PROVIDER
+// ═══════════════════════════════════════════
+function setApiProvider(prov) {
+  state.apiProvider = prov;
+  const models = PROVIDER_MODELS[prov] || [];
+  // pick first model of provider if current model doesn't belong
+  if (!models.find(([v]) => v === state.apiModel)) {
+    state.apiModel = models[0]?.[0] || '';
+  }
+  // update tabs
+  document.querySelectorAll('.api-provider-tab').forEach(t => t.classList.toggle('active', t.dataset.prov === prov));
+  // update model select
+  const sel = document.getElementById('api-model-select');
+  if (sel) {
+    sel.innerHTML = models.map(([v,l]) => `<option value="${v}">${l}</option>`).join('');
+    sel.value = state.apiModel;
+  }
+  // update placeholder
+  const placeholders = { claude:'sk-ant-api03-...', gpt:'sk-...', gemini:'AIzaSy...' };
+  const inp = document.getElementById('api-key-input');
+  if (inp) inp.placeholder = placeholders[prov] || 'API Key...';
+  // load saved key for this provider
+  const saved = localStorage.getItem(`revon_apikey_${prov}`) || '';
+  if (inp) inp.value = saved ? saved.slice(0,8) + '••••••••' : '';
+  updateApiStatus();
+  saveToStorage();
+}
+
+function setApiModel(model) {
+  state.apiModel = model;
+  saveToStorage();
+}
+
+function saveApiKey() {
+  const val = document.getElementById('api-key-input').value.trim();
+  if (!val || val.includes('•')) { toast('API 키를 입력해주세요.', 'error'); return; }
+  localStorage.setItem(`revon_apikey_${state.apiProvider}`, val);
+  document.getElementById('api-key-input').value = val.slice(0,8) + '••••••••';
+  updateApiStatus();
+  toast(`${state.apiProvider.toUpperCase()} API 키가 저장되었습니다.`, 'success');
+}
+
+function updateApiStatus() {
+  const el = document.getElementById('api-status');
+  if (!el) return;
+  const key = localStorage.getItem(`revon_apikey_${state.apiProvider}`) || '';
+  const models = PROVIDER_MODELS[state.apiProvider] || [];
+  const modelLabel = models.find(([v]) => v === state.apiModel)?.[1] || state.apiModel;
+  if (key) {
+    el.textContent = `✓ ${state.apiProvider.toUpperCase()} · ${modelLabel} 등록됨`;
+    el.className = 'api-status ok';
+  } else {
+    el.textContent = `${state.apiProvider.toUpperCase()} 키 미등록`;
+    el.className = 'api-status';
+  }
+}
+
+function initApiSection() {
+  const models = PROVIDER_MODELS[state.apiProvider] || [];
+  const sel = document.getElementById('api-model-select');
+  if (sel) {
+    sel.innerHTML = models.map(([v,l]) => `<option value="${v}">${l}</option>`).join('');
+    sel.value = state.apiModel;
+  }
+  const placeholders = { claude:'sk-ant-api03-...', gpt:'sk-...', gemini:'AIzaSy...' };
+  const inp = document.getElementById('api-key-input');
+  if (inp) inp.placeholder = placeholders[state.apiProvider] || 'API Key...';
+  const saved = localStorage.getItem(`revon_apikey_${state.apiProvider}`) || '';
+  if (inp) inp.value = saved ? saved.slice(0,8) + '••••••••' : '';
+  document.querySelectorAll('.api-provider-tab').forEach(t => t.classList.toggle('active', t.dataset.prov === state.apiProvider));
+  updateApiStatus();
+}
+
+function toggleApiKeyVis() {
+  const input = document.getElementById('api-key-input');
+  const btn   = document.getElementById('btn-eye');
+  if (input.type === 'password') { input.type = 'text'; btn.style.color = 'var(--purple)'; }
+  else { input.type = 'password'; btn.style.color = ''; }
+}
+
+// ═══════════════════════════════════════════
+// LOCALSTORAGE
+// ═══════════════════════════════════════════
+function saveToStorage() {
+  try {
+    localStorage.setItem('revon_prompd', JSON.stringify({
+      platform: state.platform,
+      shotMode: state.shotMode,
+      activeCategory: state.activeCategory,
+      sheets: state.sheets,
+      shots: state.shots,
+      prompts: state.prompts,
+      singleShot: state.singleShot,
+      generatedParts: state.generatedParts,
+      generatedKorean: state.generatedKorean,
+      generatedFinal: state.generatedFinal,
+      generatedFinalKorean: state.generatedFinalKorean,
+      multiShot: state.multiShot,
+      colWidths: state.colWidths,
+      apiProvider: state.apiProvider,
+      apiModel: state.apiModel,
+      refImages: state.refImages,
+    }));
+  } catch (e) {
+    console.warn('저장 실패 (용량 초과 가능):', e);
+  }
+}
+
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem('revon_prompd');
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (data.platform)       state.platform       = data.platform;
+    if (data.shotMode)       state.shotMode       = data.shotMode;
+    if (data.activeCategory) state.activeCategory = data.activeCategory;
+    if (data.sheets)      state.sheets      = data.sheets;
+    if (data.shots)       state.shots       = data.shots;
+    if (data.prompts)     state.prompts     = data.prompts;
+    if (data.singleShot)     state.singleShot     = { ...state.singleShot, ...data.singleShot };
+    if (data.generatedParts)      state.generatedParts      = data.generatedParts;
+    if (data.generatedKorean)     state.generatedKorean     = data.generatedKorean;
+    if (data.generatedFinal)      state.generatedFinal      = data.generatedFinal;
+    if (data.generatedFinalKorean)state.generatedFinalKorean= data.generatedFinalKorean;
+    if (data.multiShot)           state.multiShot           = { ...state.multiShot, ...data.multiShot };
+    if (data.colWidths)           state.colWidths           = data.colWidths;
+    if (data.apiProvider)         state.apiProvider         = data.apiProvider;
+    if (data.apiModel)            state.apiModel            = data.apiModel;
+    if (data.refImages)           state.refImages           = data.refImages;
+
+    if (state.shotMode === 'multi') {
+      document.getElementById('btn-single').classList.remove('active');
+      document.getElementById('btn-multi').classList.add('active');
+      document.getElementById('center-panel-title').textContent = '멀티샷';
+    }
+    document.querySelectorAll('.cat-tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.cat === state.activeCategory);
+    });
+  } catch (e) {
+    console.warn('불러오기 실패:', e);
+  }
+}
+
+// ─── Utility: HTML escape ───
+function esc(str) {
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
+// ─── Global: close dropdowns on outside click ───
+document.addEventListener('click', () => {
+  document.getElementById('ref-dropdown')?.classList.remove('open');
+  document.getElementById('settings-dropdown')?.classList.remove('open');
+  document.querySelectorAll('.shot-ref-dropdown.open').forEach(d => d.classList.remove('open'));
+});
+
+// ─── Keyboard shortcuts ───
+document.addEventListener('keydown', e => {
+  // Ctrl+Enter: generate prompt
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    generatePrompt();
+  }
+  // Escape: close all dropdowns
+  if (e.key === 'Escape') {
+    document.getElementById('ref-dropdown')?.classList.remove('open');
+    document.getElementById('settings-dropdown')?.classList.remove('open');
+    document.querySelectorAll('.shot-ref-dropdown.open').forEach(d => d.classList.remove('open'));
+  }
+});
+
+// ═══════════════════════════════════════════
+// COLUMN RESIZE
+// ═══════════════════════════════════════════
+let _rz = null;
+
+document.addEventListener('mousedown', e => {
+  const handle = e.target.closest('.col-rz');
+  if (!handle) return;
+  const th = handle.closest('th');
+  _rz = { th, startX: e.clientX, startW: th.offsetWidth };
+  handle.classList.add('rz-active');
+  document.querySelector('.shot-table')?.classList.add('resizing');
+  e.preventDefault();
+});
+
+document.addEventListener('mousemove', e => {
+  if (!_rz) return;
+  const newW = Math.max(40, _rz.startW + (e.clientX - _rz.startX));
+  _rz.th.style.width = newW + 'px';
+});
+
+document.addEventListener('mouseup', () => {
+  if (!_rz) return;
+  document.querySelectorAll('.col-rz.rz-active').forEach(h => h.classList.remove('rz-active'));
+  document.querySelector('.shot-table')?.classList.remove('resizing');
+  saveColWidths();
+  _rz = null;
+});
+
+function saveColWidths() {
+  const ths = document.querySelectorAll('.shot-table thead th');
+  if (!ths.length) return;
+  state.colWidths = Array.from(ths).map(th => th.style.width || '');
+  saveToStorage();
+}
+
+function restoreColWidths() {
+  if (!state.colWidths?.length) return;
+  const ths = document.querySelectorAll('.shot-table thead th');
+  state.colWidths.forEach((w, i) => { if (w && ths[i]) ths[i].style.width = w; });
+}
+
+// ─── Start ───
+init();
+</script>
+</body>
+</html>
